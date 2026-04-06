@@ -116,6 +116,24 @@ export default function TableEditor({
     setIsDirty(true);
   }
 
+  // ── Keyboard shortcuts: Ctrl/Cmd-Z undo, Ctrl/Cmd-Y redo ──
+  useEffect(() => {
+    if (mode !== "edit") return;
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mode, history.past.length, history.future.length]);
+
   // ── Unsaved changes: hard navigation (refresh, close, external URL) ──
   useEffect(() => {
     if (mode === "view" || !isDirty) return;
@@ -251,23 +269,19 @@ export default function TableEditor({
       </div>
 
       {mode === "view" && (
-        <>
-          {canEdit && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => setMode("edit")}
-                className="px-3 py-1.5 text-sm border border-zinc-300 rounded-md text-zinc-600 hover:bg-zinc-50 hover:border-zinc-400 transition-colors"
-              >
-                Edit
-              </button>
-            </div>
-          )}
-          <TableGrid
-            columns={present.columns}
-            rows={present.rows}
-            initialSort={present.defaultSort ?? undefined}
-          />
-        </>
+        <TableGrid
+          columns={present.columns}
+          rows={present.rows}
+          initialSort={present.defaultSort ?? undefined}
+          toolbarExtra={canEdit ? (
+            <button
+              onClick={() => setMode("edit")}
+              className="px-3 py-1.5 text-sm border border-zinc-300 rounded-md text-zinc-600 hover:bg-zinc-50 hover:border-zinc-400 transition-colors"
+            >
+              Edit
+            </button>
+          ) : undefined}
+        />
       )}
 
       {mode === "edit" && (

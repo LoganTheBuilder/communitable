@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type ReactNode } from "react";
 import type { ColumnDef, Row, CellValue } from "@/lib/types";
 import { useColumnResize } from "./useColumnResize";
 
@@ -33,9 +33,11 @@ interface Props {
   columns: ColumnDef[];
   rows: Row[];
   initialSort?: SortState;
+  /** Optional content rendered at the end of the filter toolbar row */
+  toolbarExtra?: ReactNode;
 }
 
-export default function TableGrid({ columns, rows, initialSort }: Props) {
+export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: Props) {
   const [sort, setSort] = useState<SortState | null>(initialSort ?? null);
   const [query, setQuery] = useState("");
   const [filterCol, setFilterCol] = useState<string>("__all__");
@@ -122,6 +124,7 @@ export default function TableGrid({ columns, rows, initialSort }: Props) {
             {sorted.length} match{sorted.length !== 1 ? "es" : ""}
           </span>
         )}
+        {toolbarExtra && <div className="ml-auto flex items-center">{toolbarExtra}</div>}
       </div>
 
       {/* Grid */}

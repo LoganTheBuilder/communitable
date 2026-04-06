@@ -173,6 +173,8 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
         newCol = columns.length - 1;
         newRow--;
       }
+      // At the boundary, do nothing
+      if (newRow < 0 || newRow >= displayRows.length) return;
     }
 
     newRow = Math.max(0, Math.min(displayRows.length - 1, newRow));
@@ -182,7 +184,41 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
 
   function commitAndMove(dRow: number, dCol: number, wrap = false) {
     commitCell();
-    moveFocus(dRow, dCol, wrap);
+    if (!focusedCell) return;
+    let newRow = focusedCell.row + dRow;
+    let newCol = focusedCell.col + dCol;
+
+    if (wrap) {
+      if (newCol >= columns.length) {
+        newCol = 0;
+        newRow++;
+      } else if (newCol < 0) {
+        newCol = columns.length - 1;
+        newRow--;
+      }
+    }
+
+    // If the destination is out of bounds, just commit and stay
+    if (newRow < 0 || newRow >= displayRows.length || newCol < 0 || newCol >= columns.length) {
+      return;
+    }
+
+    // If we didn't actually move, just commit without re-entering edit
+    if (newRow === focusedCell.row && newCol === focusedCell.col) {
+      return;
+    }
+
+    setFocusedCell({ row: newRow, col: newCol });
+
+    // Start editing the next cell immediately for rapid data entry
+    const { originalIdx, row } = displayRows[newRow];
+    const col = columns[newCol];
+    const v = row[col.key];
+    setEditingCell({
+      rowIdx: originalIdx,
+      colKey: col.key,
+      value: v == null ? "" : String(v),
+    });
   }
 
   function handleGridKeyDown(e: React.KeyboardEvent) {
@@ -461,14 +497,21 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                     style={{ width: getWidth(col.key) }}
                   >
                     {isEditing ? (
-                      <div className="flex flex-col gap-1">
+                      <div
+                        className="flex flex-col gap-1"
+                        onBlur={(e) => {
+                          // Only commit when focus leaves the entire editing container
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            commitCol();
+                          }
+                        }}
+                      >
                         <input
                           autoFocus
                           value={editingCol.label}
                           onChange={(e) =>
                             setEditingCol({ ...editingCol, label: e.target.value })
                           }
-                          onBlur={commitCol}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") commitCol();
                             if (e.key === "Escape") setEditingCol(null);
@@ -483,7 +526,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                               type: e.target.value as ColumnDef["type"],
                             })
                           }
-                          className="text-xs border border-zinc-200 rounded px-1 py-0.5 bg-white focus:outline-none"
+                          className="text-xs border border-zinc-200 rounded px-1 py-0.5 bg-white focus:outline-none cursor-pointer"
                         >
                           <option value="string">Text</option>
                           <option value="number">Number</option>
