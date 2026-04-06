@@ -18,7 +18,12 @@ const SYSTEM_USER_EMAIL = "system@allyourbase.local";
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const body = (await req.json()) as StoredTable & { publish?: boolean };
+  const body = (await req.json()) as StoredTable & {
+    publish?: boolean;
+    name?: string;
+    description?: string | null;
+    unpublish?: boolean;
+  };
 
   // Persist to file store
   await writeTable(id, { columns: body.columns, rows: body.rows, defaultSort: body.defaultSort });
@@ -39,11 +44,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       update: {
         updatedAt: new Date(),
         ...(body.publish && { published: true }),
+        ...(body.unpublish && { published: false }),
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.description !== undefined && { description: body.description }),
       },
       create: {
         id,
-        name: meta?.name ?? `Table ${id}`,
-        description: meta?.description ?? null,
+        name: body.name ?? meta?.name ?? `Table ${id}`,
+        description: body.description ?? meta?.description ?? null,
         ownerId: user.id,
       },
     });
@@ -78,5 +86,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     console.error("[version save error]", err);
   }
 
-  return Response.json({ ok: true, published: body.publish ? true : undefined });
+  return Response.json({
+    ok: true,
+    published: body.unpublish ? false : body.publish ? true : undefined,
+    name: body.name,
+    description: body.description,
+  });
 }

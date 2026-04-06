@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SAMPLE_TABLES } from "@/lib/sample-data";
 import { prisma } from "@/lib/prisma";
+import TableSearch from "@/components/TableSearch";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,8 @@ interface DirectoryEntry {
   description: string | null;
   author: string;
   rowCount?: number;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default async function Home() {
@@ -37,7 +39,8 @@ export default async function Home() {
         description: t.description,
         author: t.owner.name || t.owner.email.split("@")[0],
         rowCount: latestData?.rows?.length,
-        updatedAt: t.updatedAt,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
       };
     });
   } catch {
@@ -51,12 +54,14 @@ export default async function Home() {
     description: t.description,
     author: t.author,
     rowCount: t.rowCount,
-    updatedAt: new Date(t.updatedAt),
+    createdAt: t.updatedAt,
+    updatedAt: t.updatedAt,
   }));
 
   const allTables = [...sampleEntries, ...dbTables].sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
+
   return (
     <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)]">
       {/* Nav */}
@@ -94,32 +99,9 @@ export default async function Home() {
         </Link>
       </section>
 
-      {/* Table directory */}
+      {/* Search + Table directory */}
       <main className="px-8 pb-20">
-        <div className="grid gap-3 max-w-4xl">
-          {allTables.map((table) => (
-            <Link
-              key={table.id}
-              href={`/tables/${table.id}`}
-              className="flex items-start justify-between p-4 border border-zinc-200 rounded-lg hover:border-zinc-400 hover:bg-zinc-50 transition-all group"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-zinc-900 group-hover:text-black truncate">
-                  {table.name}
-                </p>
-                {table.description && (
-                  <p className="text-sm text-zinc-500 mt-0.5">{table.description}</p>
-                )}
-                <p className="text-xs text-zinc-400 mt-1">by {table.author}</p>
-              </div>
-              {table.rowCount != null && (
-                <span className="ml-6 shrink-0 text-xs text-zinc-400 tabular-nums pt-0.5">
-                  {table.rowCount.toLocaleString()} rows
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
+        <TableSearch tables={allTables} />
       </main>
     </div>
   );

@@ -71,6 +71,8 @@ interface Props {
   initialDefaultSort?: { key: string; dir: "asc" | "desc" } | null;
   /** When true, start in edit mode and show "Publish" instead of "Save" */
   publishMode?: boolean;
+  initialName?: string;
+  initialDescription?: string | null;
   // TODO: add `canEdit: boolean` derived from session once auth is wired up
 }
 
@@ -80,6 +82,8 @@ export default function TableEditor({
   initialRows,
   initialDefaultSort = null,
   publishMode = false,
+  initialName = "",
+  initialDescription = null,
 }: Props) {
   // TODO: replace with `canEdit` prop from session when auth is added
   const canEdit = true;
@@ -218,6 +222,8 @@ export default function TableEditor({
   }
 
   const [isPublished, setIsPublished] = useState(!publishMode);
+  const [tableName, setTableName] = useState(initialName);
+  const [tableDescription, setTableDescription] = useState(initialDescription ?? "");
 
   async function handleSave() {
     setSaving(true);
@@ -226,6 +232,8 @@ export default function TableEditor({
       if (!isPublished) {
         payload.publish = true;
       }
+      payload.name = tableName;
+      payload.description = tableDescription || null;
       await fetch(`/api/tables/${tableId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -238,6 +246,31 @@ export default function TableEditor({
     } finally {
       setSaving(false);
       setMode("view");
+      router.refresh();
+    }
+  }
+
+  async function handleHide() {
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        ...present,
+        unpublish: true,
+        name: tableName,
+        description: tableDescription || null,
+      };
+      await fetch(`/api/tables/${tableId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSavedContent(present);
+      setIsDirty(false);
+      setIsPublished(false);
+      setMode("view");
+      router.refresh();
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -254,6 +287,12 @@ export default function TableEditor({
     onSave: () => { void handleSave(); },
     saving,
     onExit: handleExitAttempt,
+    tableName,
+    tableDescription,
+    isPublished,
+    onNameChange: (name: string) => { setTableName(name); setIsDirty(true); },
+    onDescriptionChange: (desc: string) => { setTableDescription(desc); setIsDirty(true); },
+    onHide: () => { void handleHide(); },
     ...((!isPublished) && {
       saveLabel: "Publish",
       savingLabel: "Publishing…",

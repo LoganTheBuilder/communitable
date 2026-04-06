@@ -17,6 +17,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Table name is required" }, { status: 400 });
   }
 
+  // Check for duplicate table name
+  const existing = await prisma.table.findFirst({
+    where: { name: body.name.trim() },
+    select: { id: true },
+  });
+  if (existing) {
+    return Response.json(
+      { error: "A table with that name already exists. Please choose a different name." },
+      { status: 409 }
+    );
+  }
+
   const numCols = Math.max(1, Math.min(body.columns ?? 3, 26));
   const numRows = Math.max(0, Math.min(body.rows ?? 5, 1000));
 

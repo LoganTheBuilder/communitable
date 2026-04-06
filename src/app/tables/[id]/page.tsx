@@ -140,6 +140,8 @@ export default async function TablePage({ params }: Props) {
           initialRows={stored.rows}
           initialDefaultSort={stored.defaultSort}
           publishMode={!tableMeta.published}
+          initialName={tableMeta.name}
+          initialDescription={tableMeta.description}
         />
       </main>
     </div>
