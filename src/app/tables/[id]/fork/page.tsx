@@ -4,6 +4,7 @@ import { getTableMeta } from "@/lib/sample-data";
 import { readTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
 import ForkForm from "./ForkForm";
+import AuthNav from "@/components/AuthNav";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -26,11 +27,11 @@ export default async function ForkPage({ params }: Props) {
     try {
       const dbTable = await prisma.table.findUnique({
         where: { id },
-        include: { owner: { select: { name: true, email: true } } },
+        include: { owner: { select: { displayName: true } } },
       });
       if (dbTable) {
         sourceName = dbTable.name;
-        sourceAuthor = dbTable.owner.name || dbTable.owner.email.split("@")[0];
+        sourceAuthor = dbTable.owner.displayName || "Anonymous";
         sourceDescription = dbTable.description;
       }
     } catch {
@@ -52,14 +53,7 @@ export default async function ForkPage({ params }: Props) {
         >
           AllYourBase
         </Link>
-        <nav className="flex items-center gap-3">
-          <Link href="/auth/signin" className="px-4 py-1.5 text-sm text-zinc-600 hover:text-zinc-900 transition-colors">
-            Log In
-          </Link>
-          <Link href="/auth/signup" className="px-4 py-1.5 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors">
-            Sign Up
-          </Link>
-        </nav>
+        <AuthNav />
       </header>
 
       <main className="px-8 py-12 max-w-lg mx-auto">

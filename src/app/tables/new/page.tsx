@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import AuthNav from "@/components/AuthNav";
 
 export default function NewTablePage() {
   const router = useRouter();
@@ -54,20 +55,7 @@ export default function NewTablePage() {
         >
           AllYourBase
         </Link>
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/auth/signin"
-            className="px-4 py-1.5 text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
-          >
-            Log In
-          </Link>
-          <Link
-            href="/auth/signup"
-            className="px-4 py-1.5 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors"
-          >
-            Sign Up
-          </Link>
-        </nav>
+        <AuthNav />
       </header>
 
       <main className="px-8 py-12 max-w-lg mx-auto">

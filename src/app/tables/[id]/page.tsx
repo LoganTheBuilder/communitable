@@ -4,6 +4,7 @@ import TableEditor from "@/components/editor/TableEditor";
 import { getTableMeta } from "@/lib/sample-data";
 import { readTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
+import AuthNav from "@/components/AuthNav";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -35,7 +36,7 @@ export default async function TablePage({ params }: Props) {
     try {
       const dbTable = await prisma.table.findUnique({
         where: { id },
-        include: { owner: { select: { name: true, email: true } } },
+        include: { owner: { select: { displayName: true } } },
       });
       if (dbTable) {
         // Fetch fork origin if this table was forked
@@ -43,13 +44,13 @@ export default async function TablePage({ params }: Props) {
         if (dbTable.forkedFromId) {
           const source = await prisma.table.findUnique({
             where: { id: dbTable.forkedFromId },
-            include: { owner: { select: { name: true, email: true } } },
+            include: { owner: { select: { displayName: true } } },
           }).catch(() => null);
           if (source) {
             forkOrigin = {
               id: source.id,
               name: source.name,
-              author: source.owner.name || source.owner.email.split("@")[0],
+              author: source.owner.displayName || "Anonymous",
             };
           }
         }
@@ -57,7 +58,7 @@ export default async function TablePage({ params }: Props) {
         tableMeta = {
           name: dbTable.name,
           description: dbTable.description,
-          author: dbTable.owner.name || dbTable.owner.email.split("@")[0],
+          author: dbTable.owner.displayName || "Anonymous",
           published: dbTable.published,
           forkedFrom: forkOrigin,
         };
@@ -78,14 +79,7 @@ export default async function TablePage({ params }: Props) {
         <Link href="/" className="text-lg font-semibold tracking-tight hover:opacity-70 transition-opacity">
           AllYourBase
         </Link>
-        <nav className="flex items-center gap-3">
-          <Link href="/auth/signin" className="px-4 py-1.5 text-sm text-zinc-600 hover:text-zinc-900 transition-colors">
-            Log In
-          </Link>
-          <Link href="/auth/signup" className="px-4 py-1.5 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors">
-            Sign Up
-          </Link>
-        </nav>
+        <AuthNav />
       </header>
 
       <main className="px-8 py-8">

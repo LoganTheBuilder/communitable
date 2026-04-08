@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SAMPLE_TABLES } from "@/lib/sample-data";
 import { prisma } from "@/lib/prisma";
 import TableSearch from "@/components/TableSearch";
+import AuthNav from "@/components/AuthNav";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function Home() {
       where: { published: true },
       orderBy: { updatedAt: "desc" },
       include: {
-        owner: { select: { name: true, email: true } },
+        owner: { select: { displayName: true, userId: true } },
         versions: {
           orderBy: { version: "desc" },
           take: 1,
@@ -37,7 +38,7 @@ export default async function Home() {
         id: t.id,
         name: t.name,
         description: t.description,
-        author: t.owner.name || t.owner.email.split("@")[0],
+        author: t.owner.displayName || "Anonymous",
         rowCount: latestData?.rows?.length,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
@@ -67,20 +68,7 @@ export default async function Home() {
       {/* Nav */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100">
         <span className="text-lg font-semibold tracking-tight">Communitables</span>
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/auth/signin"
-            className="px-4 py-1.5 text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
-          >
-            Log In
-          </Link>
-          <Link
-            href="/auth/signup"
-            className="px-4 py-1.5 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors"
-          >
-            Sign Up
-          </Link>
-        </nav>
+        <AuthNav />
       </header>
 
       {/* Hero */}

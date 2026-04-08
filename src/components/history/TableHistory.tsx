@@ -6,9 +6,8 @@ import DiffView from "./DiffView";
 
 interface VersionAuthor {
   id: string;
-  name: string | null;
-  email: string;
-  image: string | null;
+  displayName: string | null;
+  userId: string;
 }
 
 interface DefaultSort {
@@ -43,7 +42,7 @@ function formatDate(iso: string): string {
 }
 
 function authorName(author: VersionAuthor): string {
-  return author.name || author.email.split("@")[0];
+  return author.displayName || "Anonymous";
 }
 
 export default function TableHistory({ versions, tableName }: Props) {
@@ -128,17 +127,9 @@ export default function TableHistory({ versions, tableName }: Props) {
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-xs text-zinc-400">
                         <span className="flex items-center gap-1.5">
-                          {v.author.image ? (
-                            <img
-                              src={v.author.image}
-                              alt=""
-                              className="w-4 h-4 rounded-full"
-                            />
-                          ) : (
-                            <span className="w-4 h-4 rounded-full bg-zinc-200 flex items-center justify-center text-[10px] font-medium text-zinc-500">
-                              {authorName(v.author).charAt(0).toUpperCase()}
-                            </span>
-                          )}
+                          <span className="w-4 h-4 rounded-full bg-zinc-200 flex items-center justify-center text-[10px] font-medium text-zinc-500">
+                            {authorName(v.author).charAt(0).toUpperCase()}
+                          </span>
                           {authorName(v.author)}
                         </span>
                         <span>{formatDate(v.createdAt)}</span>

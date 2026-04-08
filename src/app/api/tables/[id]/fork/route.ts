@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { readTable, writeTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
 import { getTableMeta } from "@/lib/sample-data";
+import { auth } from "@/lib/auth";
+import { ensureProfile } from "@/lib/auth/profile";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -11,8 +13,6 @@ interface ForkBody {
   name: string;
   description?: string;
 }
-
-const SYSTEM_USER_EMAIL = "system@allyourbase.local";
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { id: sourceId } = await params;
@@ -26,12 +26,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Read source table data
     const sourceData = await readTable(sourceId);
 
-    // Ensure system user
-    const user = await prisma.user.upsert({
-      where: { email: SYSTEM_USER_EMAIL },
-      update: {},
-      create: { email: SYSTEM_USER_EMAIL, name: "System" },
-    });
+    // Get authenticated user or fall back to system profile
+    let profileId: string;
+    const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
+
+    if (session?.user) {
+      const profile = await ensureProfile(session.user.id, session.user.name);
+      profileId = profile.id;
+    } else {
+      const profile = await ensureProfile("system", "System");
+      profileId = profile.id;
+    }
 
     // Ensure the source table has a DB record (sample tables may not yet)
     const sourceMeta = getTableMeta(sourceId);
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         name: sourceMeta?.name ?? `Table ${sourceId}`,
         description: sourceMeta?.description ?? null,
         published: true,
-        ownerId: user.id,
+        ownerId: profileId,
       },
     });
 
@@ -53,7 +58,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         name: body.name.trim(),
         description: body.description?.trim() || null,
         published: false,
-        ownerId: user.id,
+        ownerId: profileId,
         forkedFromId: sourceId,
       },
     });
@@ -69,7 +74,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         schema: JSON.parse(JSON.stringify({ columns: sourceData.columns, defaultSort: sourceData.defaultSort ?? null })),
         data: JSON.parse(JSON.stringify({ rows: sourceData.rows })),
         message: "Forked from original",
-        authorId: user.id,
+        authorId: profileId,
       },
     });
 

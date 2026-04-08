@@ -3,6 +3,8 @@ import { readTable, writeTable } from "@/lib/table-store";
 import type { StoredTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
 import { getTableMeta } from "@/lib/sample-data";
+import { auth } from "@/lib/auth";
+import { ensureProfile } from "@/lib/auth/profile";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -13,8 +15,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const table = await readTable(id);
   return Response.json(table);
 }
-
-const SYSTEM_USER_EMAIL = "system@allyourbase.local";
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
@@ -30,12 +30,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   // Persist a version to the database
   try {
-    // Ensure a system user exists (until auth is wired up)
-    const user = await prisma.user.upsert({
-      where: { email: SYSTEM_USER_EMAIL },
-      update: {},
-      create: { email: SYSTEM_USER_EMAIL, name: "System" },
-    });
+    // Get authenticated user or fall back to system profile
+    let profileId: string;
+    const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
+
+    if (session?.user) {
+      const profile = await ensureProfile(session.user.id, session.user.name);
+      profileId = profile.id;
+    } else {
+      const SYSTEM_USER_ID = "system";
+      const profile = await ensureProfile(SYSTEM_USER_ID, "System");
+      profileId = profile.id;
+    }
 
     // Ensure the table record exists
     const meta = getTableMeta(id);
@@ -52,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         id,
         name: body.name ?? meta?.name ?? `Table ${id}`,
         description: body.description ?? meta?.description ?? null,
-        ownerId: user.id,
+        ownerId: profileId,
       },
     });
 
@@ -78,7 +84,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           version: nextVersion,
           schema: newSchema,
           data: newData,
-          authorId: user.id,
+          authorId: profileId,
         },
       });
     }

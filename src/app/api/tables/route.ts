@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { writeTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { ensureProfile } from "@/lib/auth/profile";
 import type { ColumnDef, Row } from "@/lib/types";
 
 interface CreateTableBody {
@@ -49,13 +51,19 @@ export async function POST(req: NextRequest) {
       return row;
     });
 
-    // TODO: get authenticated user; for now use system user
-    const SYSTEM_USER_EMAIL = "system@allyourbase.local";
-    const user = await prisma.user.upsert({
-      where: { email: SYSTEM_USER_EMAIL },
-      update: {},
-      create: { email: SYSTEM_USER_EMAIL, name: "System" },
-    });
+    // Get authenticated user or fall back to system user
+    let profileId: string;
+    const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
+
+    if (session?.user) {
+      const profile = await ensureProfile(session.user.id, session.user.name);
+      profileId = profile.id;
+    } else {
+      // Fallback: create/get a system profile for anonymous table creation
+      const SYSTEM_USER_ID = "system";
+      const profile = await ensureProfile(SYSTEM_USER_ID, "System");
+      profileId = profile.id;
+    }
 
     // Create the table record
     const table = await prisma.table.create({
@@ -63,7 +71,7 @@ export async function POST(req: NextRequest) {
         name: body.name.trim(),
         description: body.description?.trim() || null,
         published: false,
-        ownerId: user.id,
+        ownerId: profileId,
       },
     });
 
@@ -78,7 +86,7 @@ export async function POST(req: NextRequest) {
         schema: JSON.parse(JSON.stringify({ columns, defaultSort: null })),
         data: JSON.parse(JSON.stringify({ rows })),
         message: "Initial draft",
-        authorId: user.id,
+        authorId: profileId,
       },
     });
 

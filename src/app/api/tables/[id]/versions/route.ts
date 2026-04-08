@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         message: true,
         createdAt: true,
         author: {
-          select: { id: true, name: true, email: true, image: true },
+          select: { id: true, displayName: true, userId: true },
         },
       },
     });
