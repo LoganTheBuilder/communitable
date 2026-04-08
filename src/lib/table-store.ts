@@ -9,23 +9,27 @@ export interface StoredTable {
 }
 
 export async function readTable(id: string): Promise<StoredTable> {
-  const latest = await prisma.tableVersion.findFirst({
-    where: { tableId: id },
-    orderBy: { version: "desc" },
-    select: { schema: true, data: true },
-  });
+  try {
+    const latest = await prisma.tableVersion.findFirst({
+      where: { tableId: id },
+      orderBy: { version: "desc" },
+      select: { schema: true, data: true },
+    });
 
-  if (latest) {
-    const schema = latest.schema as unknown as { columns: ColumnDef[]; defaultSort: StoredTable["defaultSort"] };
-    const data = latest.data as unknown as { rows: Row[] } | null;
-    return {
-      columns: schema.columns,
-      rows: data?.rows ?? [],
-      defaultSort: schema.defaultSort ?? null,
-    };
+    if (latest) {
+      const schema = latest.schema as unknown as { columns: ColumnDef[]; defaultSort: StoredTable["defaultSort"] };
+      const data = latest.data as unknown as { rows: Row[] } | null;
+      return {
+        columns: schema.columns,
+        rows: data?.rows ?? [],
+        defaultSort: schema.defaultSort ?? null,
+      };
+    }
+  } catch (err) {
+    console.error("[readTable] DB query failed:", err);
   }
 
-  // No DB record yet — fall back to in-memory sample data
+  // No DB record or query failed — fall back to in-memory sample data
   const schema = getTableSchema(id);
   const data = getTableData(id);
   return { columns: schema.columns, rows: data.rows, defaultSort: null };
