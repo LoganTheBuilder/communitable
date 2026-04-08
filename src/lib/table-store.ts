@@ -16,8 +16,8 @@ export async function readTable(id: string): Promise<StoredTable> {
   });
 
   if (latest) {
-    const schema = latest.schema as { columns: ColumnDef[]; defaultSort: StoredTable["defaultSort"] };
-    const data = latest.data as { rows: Row[] } | null;
+    const schema = latest.schema as unknown as { columns: ColumnDef[]; defaultSort: StoredTable["defaultSort"] };
+    const data = latest.data as unknown as { rows: Row[] } | null;
     return {
       columns: schema.columns,
       rows: data?.rows ?? [],
