@@ -22,55 +22,60 @@ export async function POST(req: NextRequest, { params }: Params) {
     return Response.json({ error: "Table name is required" }, { status: 400 });
   }
 
-  // Read source table data
-  const sourceData = await readTable(sourceId);
+  try {
+    // Read source table data
+    const sourceData = await readTable(sourceId);
 
-  // Ensure system user
-  const user = await prisma.user.upsert({
-    where: { email: SYSTEM_USER_EMAIL },
-    update: {},
-    create: { email: SYSTEM_USER_EMAIL, name: "System" },
-  });
+    // Ensure system user
+    const user = await prisma.user.upsert({
+      where: { email: SYSTEM_USER_EMAIL },
+      update: {},
+      create: { email: SYSTEM_USER_EMAIL, name: "System" },
+    });
 
-  // Ensure the source table has a DB record (sample tables may not yet)
-  const sourceMeta = getTableMeta(sourceId);
-  await prisma.table.upsert({
-    where: { id: sourceId },
-    update: {},
-    create: {
-      id: sourceId,
-      name: sourceMeta?.name ?? `Table ${sourceId}`,
-      description: sourceMeta?.description ?? null,
-      published: true,
-      ownerId: user.id,
-    },
-  });
+    // Ensure the source table has a DB record (sample tables may not yet)
+    const sourceMeta = getTableMeta(sourceId);
+    await prisma.table.upsert({
+      where: { id: sourceId },
+      update: {},
+      create: {
+        id: sourceId,
+        name: sourceMeta?.name ?? `Table ${sourceId}`,
+        description: sourceMeta?.description ?? null,
+        published: true,
+        ownerId: user.id,
+      },
+    });
 
-  // Create the forked table record
-  const forkedTable = await prisma.table.create({
-    data: {
-      name: body.name.trim(),
-      description: body.description?.trim() || null,
-      published: false,
-      ownerId: user.id,
-      forkedFromId: sourceId,
-    },
-  });
+    // Create the forked table record
+    const forkedTable = await prisma.table.create({
+      data: {
+        name: body.name.trim(),
+        description: body.description?.trim() || null,
+        published: false,
+        ownerId: user.id,
+        forkedFromId: sourceId,
+      },
+    });
 
-  // Copy data to file store
-  await writeTable(forkedTable.id, sourceData);
+    // Copy data to file store
+    await writeTable(forkedTable.id, sourceData);
 
-  // Create initial version
-  await prisma.tableVersion.create({
-    data: {
-      tableId: forkedTable.id,
-      version: 1,
-      schema: JSON.parse(JSON.stringify({ columns: sourceData.columns, defaultSort: sourceData.defaultSort ?? null })),
-      data: JSON.parse(JSON.stringify({ rows: sourceData.rows })),
-      message: "Forked from original",
-      authorId: user.id,
-    },
-  });
+    // Create initial version
+    await prisma.tableVersion.create({
+      data: {
+        tableId: forkedTable.id,
+        version: 1,
+        schema: JSON.parse(JSON.stringify({ columns: sourceData.columns, defaultSort: sourceData.defaultSort ?? null })),
+        data: JSON.parse(JSON.stringify({ rows: sourceData.rows })),
+        message: "Forked from original",
+        authorId: user.id,
+      },
+    });
 
-  return Response.json({ id: forkedTable.id });
+    return Response.json({ id: forkedTable.id });
+  } catch (err) {
+    console.error("[POST /api/tables/fork]", err);
+    return Response.json({ error: "Failed to fork table" }, { status: 500 });
+  }
 }

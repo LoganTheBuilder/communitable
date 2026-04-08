@@ -30,12 +30,13 @@ export default function NewTablePage() {
         body: JSON.stringify({ name: name.trim(), description: description.trim(), rows, columns }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Failed to create table");
       }
 
-      const { id } = await res.json();
+      const { id } = data;
       router.push(`/tables/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
