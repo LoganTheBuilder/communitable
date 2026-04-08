@@ -29,8 +29,9 @@ export default function SignUpPage() {
       } else {
         setSuccess(true);
       }
-    } catch {
-      setError("An unexpected error occurred");
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }

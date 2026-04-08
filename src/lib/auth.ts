@@ -12,32 +12,40 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your password",
-        html: `
-          <h2>Reset your password</h2>
-          <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-          <p><a href="${url}">Reset Password</a></p>
-          <p>If you didn't request this, you can safely ignore this email.</p>
-        `,
-      });
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your password",
+          html: `
+            <h2>Reset your password</h2>
+            <p>Click the link below to reset your password. This link expires in 1 hour.</p>
+            <p><a href="${url}">Reset Password</a></p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+          `,
+        });
+      } catch (err) {
+        console.error("[Auth] Failed to send password reset email:", err);
+      }
     },
   },
 
   emailVerification: {
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: "Verify your email",
-        html: `
-          <h2>Verify your email</h2>
-          <p>Click the link below to verify your email address.</p>
-          <p><a href="${url}">Verify Email</a></p>
-          <p>If you didn't create an account, you can safely ignore this email.</p>
-        `,
-      });
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your email",
+          html: `
+            <h2>Verify your email</h2>
+            <p>Click the link below to verify your email address.</p>
+            <p><a href="${url}">Verify Email</a></p>
+            <p>If you didn't create an account, you can safely ignore this email.</p>
+          `,
+        });
+      } catch (err) {
+        console.error("[Auth] Failed to send verification email:", err);
+      }
     },
   },
 
