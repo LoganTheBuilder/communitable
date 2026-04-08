@@ -1,7 +1,6 @@
-import fs from "fs/promises";
-import path from "path";
 import type { ColumnDef, Row } from "@/lib/types";
 import { getTableSchema, getTableData } from "@/lib/sample-data";
+import { prisma } from "@/lib/prisma";
 
 export interface StoredTable {
   columns: ColumnDef[];
@@ -9,30 +8,30 @@ export interface StoredTable {
   defaultSort: { key: string; dir: "asc" | "desc" } | null;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data", "tables");
-
-async function ensureDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-}
-
 export async function readTable(id: string): Promise<StoredTable> {
-  await ensureDir();
-  try {
-    const raw = await fs.readFile(path.join(DATA_DIR, `${id}.json`), "utf-8");
-    return JSON.parse(raw) as StoredTable;
-  } catch {
-    // No saved file yet — seed from sample data
-    const schema = getTableSchema(id);
-    const data = getTableData(id);
-    return { columns: schema.columns, rows: data.rows, defaultSort: null };
+  const latest = await prisma.tableVersion.findFirst({
+    where: { tableId: id },
+    orderBy: { version: "desc" },
+    select: { schema: true, data: true },
+  });
+
+  if (latest) {
+    const schema = latest.schema as { columns: ColumnDef[]; defaultSort: StoredTable["defaultSort"] };
+    const data = latest.data as { rows: Row[] } | null;
+    return {
+      columns: schema.columns,
+      rows: data?.rows ?? [],
+      defaultSort: schema.defaultSort ?? null,
+    };
   }
+
+  // No DB record yet — fall back to in-memory sample data
+  const schema = getTableSchema(id);
+  const data = getTableData(id);
+  return { columns: schema.columns, rows: data.rows, defaultSort: null };
 }
 
-export async function writeTable(id: string, table: StoredTable): Promise<void> {
-  await ensureDir();
-  await fs.writeFile(
-    path.join(DATA_DIR, `${id}.json`),
-    JSON.stringify(table, null, 2),
-    "utf-8"
-  );
-}
+// Data is persisted via Prisma TableVersion in the API routes.
+// This is intentionally a no-op for Vercel compatibility (read-only filesystem).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function writeTable(_id: string, _table: StoredTable): Promise<void> {}
