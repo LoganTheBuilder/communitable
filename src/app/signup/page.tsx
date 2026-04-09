@@ -26,7 +26,13 @@ export default function SignUpPage() {
       });
 
       if (result.error) {
-        setError(result.error.message || "Sign up failed");
+        const code = result.error.code ?? "";
+        const msg = result.error.message ?? "";
+        if (code === "USER_ALREADY_EXISTS" || msg.toLowerCase().includes("already exist")) {
+          setError("An account with this email already exists. Try logging in instead.");
+        } else {
+          setError(msg || "Sign up failed. Please try again.");
+        }
       } else {
         setSuccess(true);
       }

@@ -33,13 +33,20 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url }) => {
       try {
+        // BetterAuth's url points to /api/auth/verify-email?token=...
+        // Rewrite it to the UI page so the user lands on a proper page.
+        const parsed = new URL(url);
+        const token = parsed.searchParams.get("token");
+        const base = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+        const uiUrl = `${base}/verify-email?token=${token}`;
+
         await sendEmail({
           to: user.email,
           subject: "Verify your email",
           html: `
             <h2>Verify your email</h2>
             <p>Click the link below to verify your email address.</p>
-            <p><a href="${url}">Verify Email</a></p>
+            <p><a href="${uiUrl}">Verify Email</a></p>
             <p>If you didn't create an account, you can safely ignore this email.</p>
           `,
         });
