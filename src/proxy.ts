@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const AUTH_PAGES = ["/login", "/signup", "/forgot-password", "/reset-password"];
 const PROTECTED_PREFIXES = ["/app"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Check for BetterAuth session cookie

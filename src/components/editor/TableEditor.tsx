@@ -6,6 +6,7 @@ import type { ColumnDef, Row } from "@/lib/types";
 import TableGrid from "@/components/TableGrid";
 import EditableGrid from "@/components/editor/EditableGrid";
 import EditorToolbar from "@/components/editor/EditorToolbar";
+import { useSession } from "@/lib/auth-client";
 
 type Mode = "view" | "edit" | "preview";
 type SortDir = "asc" | "desc";
@@ -85,8 +86,8 @@ export default function TableEditor({
   initialName = "",
   initialDescription = null,
 }: Props) {
-  // TODO: replace with `canEdit` prop from session when auth is added
-  const canEdit = true;
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
   const router = useRouter();
   const pendingNavRef = useRef<string | null>(null);
 
@@ -302,7 +303,7 @@ export default function TableEditor({
   return (
     <div className="space-y-3">
       {/* Live row/column counts */}
-      <div className="flex items-center gap-4 text-xs text-zinc-400">
+      <div className="flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
         <span>{present.rows.length.toLocaleString()} rows</span>
         <span>{present.columns.length} column{present.columns.length !== 1 ? "s" : ""}</span>
       </div>
@@ -312,14 +313,20 @@ export default function TableEditor({
           columns={present.columns}
           rows={present.rows}
           initialSort={present.defaultSort ?? undefined}
-          toolbarExtra={canEdit ? (
+          toolbarExtra={
             <button
-              onClick={() => setMode("edit")}
-              className="px-3 py-1.5 text-sm border border-zinc-300 rounded-md text-zinc-600 hover:bg-zinc-50 hover:border-zinc-400 transition-colors"
+              onClick={() => {
+                if (isLoggedIn) {
+                  setMode("edit");
+                } else {
+                  router.push("/signup");
+                }
+              }}
+              className="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors"
             >
               Edit
             </button>
-          ) : undefined}
+          }
         />
       )}
 
@@ -356,18 +363,18 @@ export default function TableEditor({
             onClick={dismissWarning}
           />
           {/* Dialog */}
-          <div className="relative bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-zinc-900">
+          <div className="relative bg-white dark:bg-zinc-800 rounded-xl shadow-xl max-w-sm w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
               Unsaved changes
             </h3>
-            <p className="mt-2 text-sm text-zinc-600">
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               You have unsaved changes that will be lost if you exit. Are you
               sure you want to discard them?
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={dismissWarning}
-                className="px-4 py-2 text-sm rounded-md border border-zinc-300 text-zinc-700 hover:bg-zinc-50 transition-colors"
+                className="px-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
               >
                 Keep editing
               </button>

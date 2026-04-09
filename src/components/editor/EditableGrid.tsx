@@ -400,7 +400,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             placeholder="Filter rows…"
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-zinc-200 rounded-md bg-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400"
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400"
           />
           {filterQuery && (
             <button
@@ -415,7 +415,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
         <select
           value={filterCol}
           onChange={(e) => setFilterCol(e.target.value)}
-          className="text-sm border border-zinc-200 rounded-md px-2 py-1.5 bg-white text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
+          className="text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
         >
           <option value="__all__">All columns</option>
           {columns.map((col) => (
@@ -444,7 +444,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
         ref={gridRef}
         tabIndex={0}
         onKeyDown={handleGridKeyDown}
-        className="overflow-x-auto rounded-lg border border-zinc-200 focus:outline-none"
+        className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 focus:outline-none"
       >
         <table className="w-full text-sm border-collapse" style={{ minWidth: 28 + columns.reduce((sum, col) => sum + getWidth(col.key), 0) + 48, tableLayout: "fixed" }}>
           <colgroup>
@@ -455,7 +455,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
             <col style={{ width: 48 }} />
           </colgroup>
           <thead>
-            <tr className="bg-zinc-50 border-b border-zinc-200">
+            <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
               {/* Row-delete spacer */}
               <th className="w-7 min-w-[28px]" />
 
@@ -490,7 +490,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                       setDragOverCol(null);
                     }}
                     className={[
-                      "px-3 py-2 text-left font-medium border-r border-zinc-100 transition-all relative",
+                      "px-3 py-2 text-left font-medium border-r border-zinc-100 dark:border-zinc-800 transition-all relative",
                       isDragOver ? "border-l-2 border-l-blue-400" : "",
                       dragCol === colIdx ? "opacity-40" : "",
                     ].join(" ")}
@@ -526,7 +526,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                               type: e.target.value as ColumnDef["type"],
                             })
                           }
-                          className="text-xs border border-zinc-200 rounded px-1 py-0.5 bg-white focus:outline-none cursor-pointer"
+                          className="text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none cursor-pointer"
                         >
                           <option value="string">Text</option>
                           <option value="number">Number</option>
@@ -537,7 +537,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                       <div className="flex items-center justify-between gap-1 group/col">
                         <button
                           onClick={() => handleHeaderSortClick(col.key)}
-                          className="flex items-center gap-1.5 text-zinc-700 hover:text-zinc-900 text-left min-w-0 flex-1"
+                          className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 text-left min-w-0 flex-1"
                           title="Sort column"
                         >
                           <span className="truncate">{col.label}</span>
@@ -617,7 +617,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                         onChange={(e) =>
                           setNewColType(e.target.value as ColumnDef["type"])
                         }
-                        className="flex-1 text-xs border border-zinc-200 rounded px-1 py-0.5 bg-white focus:outline-none"
+                        className="flex-1 text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none"
                       >
                         <option value="string">Text</option>
                         <option value="number">Number</option>
@@ -640,7 +640,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                 ) : (
                   <button
                     onClick={() => setAddingCol(true)}
-                    className="w-7 h-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition-colors text-base leading-none"
+                    className="w-7 h-7 flex items-center justify-center rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-base leading-none"
                     title="Add column"
                   >
                     +
@@ -666,7 +666,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
               displayRows.map(({ row, originalIdx }, displayIdx) => (
                 <tr
                   key={originalIdx}
-                  className="border-b border-zinc-100 last:border-0 group/row"
+                  className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 group/row"
                 >
                   {/* Delete-row button */}
                   <td className="w-7 px-1 text-center align-middle">
@@ -693,10 +693,10 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                       <td
                         key={col.key}
                         className={[
-                          "border-r border-zinc-100 last:border-r-0",
+                          "border-r border-zinc-100 dark:border-zinc-800 last:border-r-0",
                           isActiveEdit
                             ? "p-0"
-                            : "px-3 py-1.5 cursor-pointer hover:bg-blue-50/50",
+                            : "px-3 py-1.5 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/20",
                           isFocused
                             ? "ring-2 ring-inset ring-blue-400 bg-blue-50/30"
                             : "",
@@ -726,8 +726,8 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                           <span
                             className={
                               value == null
-                                ? "text-zinc-300 italic text-xs"
-                                : "text-zinc-700"
+                                ? "text-zinc-300 dark:text-zinc-600 italic text-xs"
+                                : "text-zinc-700 dark:text-zinc-300"
                             }
                           >
                             {value == null
@@ -742,18 +742,18 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                   })}
 
                   {/* Spacer under the add-col header */}
-                  <td className="border-l border-zinc-100" />
+                  <td className="border-l border-zinc-100 dark:border-zinc-800" />
                 </tr>
               ))
             )}
 
             {/* Add-row footer */}
-            <tr className="border-t border-zinc-100">
+            <tr className="border-t border-zinc-100 dark:border-zinc-800">
               <td />
               <td colSpan={columns.length} className="px-3 py-2">
                 <button
                   onClick={addRow}
-                  className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-700 transition-colors"
+                  className="flex items-center gap-1.5 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
                 >
                   <span className="text-base leading-none font-medium">+</span>
                   <span>Add row</span>
@@ -772,7 +772,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   if (!active) {
     return (
       <svg
-        className="w-3 h-3 text-zinc-300 shrink-0"
+        className="w-3 h-3 text-zinc-300 dark:text-zinc-600 shrink-0"
         viewBox="0 0 8 12"
         fill="currentColor"
       >
@@ -782,7 +782,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   }
   return (
     <svg
-      className="w-3 h-3 text-zinc-600 shrink-0"
+      className="w-3 h-3 text-zinc-600 dark:text-zinc-400 shrink-0"
       viewBox="0 0 8 8"
       fill="currentColor"
     >

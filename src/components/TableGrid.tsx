@@ -33,7 +33,6 @@ interface Props {
   columns: ColumnDef[];
   rows: Row[];
   initialSort?: SortState;
-  /** Optional content rendered at the end of the filter toolbar row */
   toolbarExtra?: ReactNode;
 }
 
@@ -75,7 +74,6 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
     });
   }, [filtered, columns, sort]);
 
-  // Reset to page 0 whenever the filtered/sorted set changes
   useEffect(() => { setPage(0); }, [query, filterCol, sorted.length]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
@@ -97,12 +95,12 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter rows…"
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-zinc-200 rounded-md bg-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400"
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
               aria-label="Clear"
             >
               ✕
@@ -112,7 +110,7 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
         <select
           value={filterCol}
           onChange={(e) => setFilterCol(e.target.value)}
-          className="text-sm border border-zinc-200 rounded-md px-2 py-1.5 bg-white text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
+          className="text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
         >
           <option value="__all__">All columns</option>
           {columns.map((col) => (
@@ -120,7 +118,7 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
           ))}
         </select>
         {query && (
-          <span className="text-xs text-zinc-400 whitespace-nowrap">
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
             {sorted.length} match{sorted.length !== 1 ? "es" : ""}
           </span>
         )}
@@ -128,7 +126,7 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
       </div>
 
       {/* Grid */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200">
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
         <table className="w-full text-sm border-collapse" style={{ minWidth: columns.reduce((sum, col) => sum + getWidth(col.key), 0), tableLayout: "fixed" }}>
           <colgroup>
             {columns.map((col) => (
@@ -136,7 +134,7 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
             ))}
           </colgroup>
           <thead>
-            <tr className="bg-zinc-50 border-b border-zinc-200">
+            <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
               {columns.map((col) => {
                 const active = sort?.key === col.key;
                 return (
@@ -144,9 +142,9 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
                     key={col.key}
                     onClick={() => handleHeaderClick(col.key)}
                     className={[
-                      "px-4 py-2.5 text-left font-medium text-zinc-600 relative",
-                      "cursor-pointer select-none hover:text-zinc-900 hover:bg-zinc-100 transition-colors",
-                      active ? "text-zinc-900 bg-zinc-100" : "",
+                      "px-4 py-2.5 text-left font-medium text-zinc-600 dark:text-zinc-400 relative",
+                      "cursor-pointer select-none hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors",
+                      active ? "text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700" : "",
                     ].join(" ")}
                     style={{ width: getWidth(col.key) }}
                   >
@@ -154,7 +152,6 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
                       {col.label}
                       <SortIcon active={active} dir={sort?.dir ?? "asc"} />
                     </span>
-                    {/* Resize handle */}
                     <span
                       onMouseDown={(e) => onMouseDown(col.key, e)}
                       onClick={(e) => e.stopPropagation()}
@@ -168,7 +165,7 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-zinc-400">
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
                   No rows match &ldquo;{query}&rdquo;
                 </td>
               </tr>
@@ -176,13 +173,13 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
               pageRows.map((row, i) => (
                 <tr
                   key={i}
-                  className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition-colors"
+                  className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
                       className={[
-                        "px-4 py-2 text-zinc-700 truncate",
+                        "px-4 py-2 text-zinc-700 dark:text-zinc-300 truncate",
                         col.type === "number" ? "tabular-nums text-right" : "",
                       ].join(" ")}
                     >
@@ -198,12 +195,12 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
 
       {/* Pagination bar */}
       <div className="flex items-center justify-between gap-4 text-sm">
-        <div className="flex items-center gap-2 text-zinc-500">
+        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
           <span className="text-xs">Rows per page:</span>
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-            className="text-xs border border-zinc-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
+            className="text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
           >
             {PAGE_SIZE_OPTIONS.map((n) => (
               <option key={n} value={n}>{n}</option>
@@ -215,21 +212,13 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
         </div>
 
         <div className="flex items-center gap-1">
-          <NavButton onClick={() => setPage(0)} disabled={clampedPage === 0} title="First page">
-            «
-          </NavButton>
-          <NavButton onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={clampedPage === 0} title="Previous page">
-            ‹
-          </NavButton>
-          <span className="px-2 text-xs text-zinc-500 tabular-nums">
+          <NavButton onClick={() => setPage(0)} disabled={clampedPage === 0} title="First page">«</NavButton>
+          <NavButton onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={clampedPage === 0} title="Previous page">‹</NavButton>
+          <span className="px-2 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
             {clampedPage + 1} / {totalPages}
           </span>
-          <NavButton onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={clampedPage >= totalPages - 1} title="Next page">
-            ›
-          </NavButton>
-          <NavButton onClick={() => setPage(totalPages - 1)} disabled={clampedPage >= totalPages - 1} title="Last page">
-            »
-          </NavButton>
+          <NavButton onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={clampedPage >= totalPages - 1} title="Next page">›</NavButton>
+          <NavButton onClick={() => setPage(totalPages - 1)} disabled={clampedPage >= totalPages - 1} title="Last page">»</NavButton>
         </div>
       </div>
     </div>
@@ -237,10 +226,7 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra }: 
 }
 
 function NavButton({
-  onClick,
-  disabled,
-  title,
-  children,
+  onClick, disabled, title, children,
 }: {
   onClick: () => void;
   disabled: boolean;
@@ -252,7 +238,7 @@ function NavButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="w-7 h-7 flex items-center justify-center rounded border border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base leading-none"
+      className="w-7 h-7 flex items-center justify-center rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base leading-none"
     >
       {children}
     </button>
@@ -262,13 +248,13 @@ function NavButton({
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) {
     return (
-      <svg className="w-3 h-3 text-zinc-300" viewBox="0 0 8 12" fill="currentColor">
+      <svg className="w-3 h-3 text-zinc-300 dark:text-zinc-600" viewBox="0 0 8 12" fill="currentColor">
         <path d="M4 0L7 4H1L4 0ZM4 12L1 8H7L4 12Z" />
       </svg>
     );
   }
   return (
-    <svg className="w-3 h-3 text-zinc-600" viewBox="0 0 8 8" fill="currentColor">
+    <svg className="w-3 h-3 text-zinc-600 dark:text-zinc-400" viewBox="0 0 8 8" fill="currentColor">
       {dir === "asc"
         ? <path d="M4 0L8 6H0L4 0Z" />
         : <path d="M4 8L0 2H8L4 8Z" />}

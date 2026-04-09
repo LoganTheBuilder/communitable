@@ -75,7 +75,7 @@ export default function EditorToolbar({
   }, [showSettings]);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-lg text-sm flex-wrap">
+    <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white rounded-lg text-sm flex-wrap">
       {mode === "edit" ? (
         <>
           {/* Left: exit + preview + settings */}
@@ -245,7 +245,7 @@ export default function EditorToolbar({
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-3 py-1 rounded bg-white text-zinc-900 font-medium hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+            className="px-3 py-1 rounded bg-white text-zinc-900 font-medium hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
           >
             {saving ? savingLabel : saveLabel}
           </button>
@@ -269,7 +269,7 @@ export default function EditorToolbar({
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-3 py-1 rounded bg-white text-zinc-900 font-medium hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+            className="px-3 py-1 rounded bg-white text-zinc-900 font-medium hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
           >
             {saving ? savingLabel : saveLabel}
           </button>

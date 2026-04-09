@@ -60,21 +60,21 @@ export default async function HistoryPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
       {/* Nav */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100">
+      <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight hover:opacity-70 transition-opacity"
+          className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity"
         >
-          AllYourBase
+          Communitables
         </Link>
         <AuthNav />
       </header>
 
       <main className="px-8 py-8">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-zinc-400 mb-6">
+        <div className="flex items-center gap-2 text-sm text-zinc-400 dark:text-zinc-500 mb-6">
           <Link href={`/tables/${id}`} className="hover:text-zinc-600 transition-colors">
             {tableName}
           </Link>
@@ -82,7 +82,7 @@ export default async function HistoryPage({ params }: Props) {
           <span className="text-zinc-700">History</span>
         </div>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-6">
           Version History
         </h1>
 

@@ -5,6 +5,7 @@ import { getTableMeta } from "@/lib/sample-data";
 import { readTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
 import AuthNav from "@/components/AuthNav";
+import ForkButton from "@/components/ForkButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -73,11 +74,11 @@ export default async function TablePage({ params }: Props) {
   const stored = await readTable(id);
 
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
       {/* Nav */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100">
-        <Link href="/" className="text-lg font-semibold tracking-tight hover:opacity-70 transition-opacity">
-          AllYourBase
+      <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
+        <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
+          Communitables
         </Link>
         <AuthNav />
       </header>
@@ -86,7 +87,7 @@ export default async function TablePage({ params }: Props) {
         {/* Table metadata */}
         <div className="mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{tableMeta.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{tableMeta.name}</h1>
             {!tableMeta.published && (
               <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
                 Draft
@@ -94,7 +95,7 @@ export default async function TablePage({ params }: Props) {
             )}
           </div>
           {tableMeta.description && (
-            <p className="mt-1 text-zinc-500">{tableMeta.description}</p>
+            <p className="mt-1 text-zinc-500 dark:text-zinc-400">{tableMeta.description}</p>
           )}
           {tableMeta.forkedFrom && (
             <p className="mt-1.5 text-xs text-zinc-400">
@@ -108,7 +109,7 @@ export default async function TablePage({ params }: Props) {
               {" "}by <span className="text-zinc-600">{tableMeta.forkedFrom.author}</span>
             </p>
           )}
-          <div className="mt-3 flex items-center gap-4 text-xs text-zinc-400">
+          <div className="mt-3 flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
             <span>by <span className="text-zinc-600">{tableMeta.author}</span></span>
             <Link
               href={`/tables/${id}/history`}
@@ -116,14 +117,7 @@ export default async function TablePage({ params }: Props) {
             >
               History
             </Link>
-            {tableMeta.published && (
-              <Link
-                href={`/tables/${id}/fork`}
-                className="text-zinc-500 hover:text-zinc-800 transition-colors underline underline-offset-2"
-              >
-                Fork
-              </Link>
-            )}
+            {tableMeta.published && <ForkButton tableId={id} />}
           </div>
         </div>
 

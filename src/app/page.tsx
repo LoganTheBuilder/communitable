@@ -3,6 +3,7 @@ import { SAMPLE_TABLES } from "@/lib/sample-data";
 import { prisma } from "@/lib/prisma";
 import TableSearch from "@/components/TableSearch";
 import AuthNav from "@/components/AuthNav";
+import NewTableButton from "@/components/NewTableButton";
 
 export const dynamic = "force-dynamic";
 
@@ -64,27 +65,22 @@ export default async function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-white font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
       {/* Nav */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100">
-        <span className="text-lg font-semibold tracking-tight">Communitables</span>
+      <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
+        <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">Communitables</Link>
         <AuthNav />
       </header>
 
       {/* Hero */}
       <section className="px-8 pt-16 pb-10 max-w-4xl">
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 mb-3">
+        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">
           The collaborative table database
         </h1>
-        <p className="text-zinc-500 text-lg">
+        <p className="text-zinc-500 dark:text-zinc-400 text-lg">
           Browse, fork, and collaborate on structured data — no account required to explore.
         </p>
-        <Link
-          href="/tables/new"
-          className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors font-medium"
-        >
-          + New Table
-        </Link>
+        <NewTableButton />
       </section>
 
       {/* Search + Table directory */}
