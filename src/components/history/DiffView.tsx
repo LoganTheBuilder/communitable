@@ -23,14 +23,14 @@ type CellStatus = "unchanged" | "added" | "removed" | "changed";
 
 const STATUS_BG: Record<CellStatus, string> = {
   unchanged: "",
-  added: "bg-green-100 text-green-900",
-  removed: "bg-red-100 text-red-900",
-  changed: "bg-yellow-100 text-yellow-900",
+  added: "bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-300",
+  removed: "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-300",
+  changed: "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-300",
 };
 
 const ROW_BG: Record<"added" | "removed", string> = {
-  added: "bg-green-50",
-  removed: "bg-red-50",
+  added: "bg-green-50 dark:bg-green-900/20",
+  removed: "bg-red-50 dark:bg-red-900/20",
 };
 
 function formatCell(value: CellValue): string {
@@ -185,22 +185,22 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <div className="flex items-center gap-4 text-xs text-zinc-500">
-        <span className="text-green-700 font-medium">+{added} added</span>
-        <span className="text-red-700 font-medium">-{removed} removed</span>
-        <span className="text-yellow-700 font-medium">~{modified} changed</span>
+      <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+        <span className="text-green-700 dark:text-green-400 font-medium">+{added} added</span>
+        <span className="text-red-700 dark:text-red-400 font-medium">-{removed} removed</span>
+        <span className="text-yellow-700 dark:text-yellow-400 font-medium">~{modified} changed</span>
         <span>{rows.filter((r) => r.status === "unchanged").length} unchanged</span>
       </div>
 
       {/* Default sort change */}
       {sortChanged && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-xs">
-          <span className="font-medium text-yellow-800">Default sort changed:</span>
-          <span className="text-yellow-700">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-xs">
+          <span className="font-medium text-yellow-800 dark:text-yellow-300">Default sort changed:</span>
+          <span className="text-yellow-700 dark:text-yellow-400">
             {formatSort(leftSort, leftCols)}
           </span>
-          <span className="text-yellow-600">&rarr;</span>
-          <span className="text-yellow-700">
+          <span className="text-yellow-600 dark:text-yellow-500">&rarr;</span>
+          <span className="text-yellow-700 dark:text-yellow-400">
             {formatSort(rightSort, rightCols)}
           </span>
         </div>
@@ -210,23 +210,23 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
       <div className="grid grid-cols-2 gap-4">
         {/* Left (older) */}
         <div>
-          <div className="mb-2 text-xs font-medium text-zinc-500 px-1">{leftLabel}</div>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 px-1">{leftLabel}</div>
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-zinc-50 border-b border-zinc-200">
+                <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
                   {allKeys.map((key) => {
                     const status = colStatus.get(key)!;
                     return (
                       <th
                         key={key}
-                        className={`px-3 py-2 text-left font-medium text-zinc-600 whitespace-nowrap text-xs ${
+                        className={`px-3 py-2 text-left font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap text-xs ${
                           status === "removed"
-                            ? "bg-red-100 text-red-800"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                             : status === "added"
-                            ? "bg-green-50 text-zinc-400"
+                            ? "bg-green-50 text-zinc-400 dark:bg-green-900/10 dark:text-zinc-500"
                             : status === "changed"
-                            ? "bg-yellow-100 text-yellow-800"
+                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
                             : ""
                         }`}
                       >
@@ -242,9 +242,9 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                   if (!row) {
                     // Added row — show empty placeholder
                     return (
-                      <tr key={i} className="border-b border-zinc-100 bg-green-50/30">
+                      <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 bg-green-50/30 dark:bg-green-900/10">
                         {allKeys.map((key) => (
-                          <td key={key} className="px-3 py-1.5 text-zinc-300 text-xs">&nbsp;</td>
+                          <td key={key} className="px-3 py-1.5 text-zinc-300 dark:text-zinc-600 text-xs">&nbsp;</td>
                         ))}
                       </tr>
                     );
@@ -252,7 +252,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                   return (
                     <tr
                       key={i}
-                      className={`border-b border-zinc-100 ${
+                      className={`border-b border-zinc-100 dark:border-zinc-800 ${
                         diff.status === "removed" ? ROW_BG.removed : ""
                       }`}
                     >
@@ -266,7 +266,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                           if (lv !== rv) cellCls = STATUS_BG.changed;
                         }
                         return (
-                          <td key={key} className={`px-3 py-1.5 text-zinc-700 whitespace-nowrap text-xs ${cellCls}`}>
+                          <td key={key} className={`px-3 py-1.5 text-zinc-700 dark:text-zinc-300 whitespace-nowrap text-xs ${cellCls}`}>
                             {formatCell(row[key] ?? null)}
                           </td>
                         );
@@ -281,23 +281,23 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
 
         {/* Right (newer) */}
         <div>
-          <div className="mb-2 text-xs font-medium text-zinc-500 px-1">{rightLabel}</div>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 px-1">{rightLabel}</div>
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-zinc-50 border-b border-zinc-200">
+                <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
                   {allKeys.map((key) => {
                     const status = colStatus.get(key)!;
                     return (
                       <th
                         key={key}
-                        className={`px-3 py-2 text-left font-medium text-zinc-600 whitespace-nowrap text-xs ${
+                        className={`px-3 py-2 text-left font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap text-xs ${
                           status === "added"
-                            ? "bg-green-100 text-green-800"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                             : status === "removed"
-                            ? "bg-red-50 text-zinc-400"
+                            ? "bg-red-50 text-zinc-400 dark:bg-red-900/10 dark:text-zinc-500"
                             : status === "changed"
-                            ? "bg-yellow-100 text-yellow-800"
+                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
                             : ""
                         }`}
                       >
@@ -316,9 +316,9 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                   if (!row) {
                     // Removed row — show empty placeholder
                     return (
-                      <tr key={i} className="border-b border-zinc-100 bg-red-50/30">
+                      <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 bg-red-50/30 dark:bg-red-900/10">
                         {allKeys.map((key) => (
-                          <td key={key} className="px-3 py-1.5 text-zinc-300 text-xs">&nbsp;</td>
+                          <td key={key} className="px-3 py-1.5 text-zinc-300 dark:text-zinc-600 text-xs">&nbsp;</td>
                         ))}
                       </tr>
                     );
@@ -326,7 +326,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                   return (
                     <tr
                       key={i}
-                      className={`border-b border-zinc-100 ${
+                      className={`border-b border-zinc-100 dark:border-zinc-800 ${
                         diff.status === "added" ? ROW_BG.added : ""
                       }`}
                     >
@@ -340,7 +340,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                           if (lv !== rv) cellCls = STATUS_BG.changed;
                         }
                         return (
-                          <td key={key} className={`px-3 py-1.5 text-zinc-700 whitespace-nowrap text-xs ${cellCls}`}>
+                          <td key={key} className={`px-3 py-1.5 text-zinc-700 dark:text-zinc-300 whitespace-nowrap text-xs ${cellCls}`}>
                             {formatCell(row[key] ?? null)}
                           </td>
                         );

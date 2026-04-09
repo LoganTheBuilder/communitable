@@ -1,17 +1,17 @@
 import type { TableMeta, TableSchema, TableData } from "./types";
 
 export const SAMPLE_TABLES: TableMeta[] = [
-  { id: "1", name: "World Population by Country", description: "Census estimates from 2020–2024", author: "un_data", rowCount: 195, updatedAt: "2024-03-01" },
-  { id: "2", name: "S&P 500 Companies", description: "Constituents, sectors, and market caps", author: "market_data", rowCount: 503, updatedAt: "2024-04-01" },
-  { id: "3", name: "Global CO₂ Emissions", description: "Annual emissions per country since 1990", author: "climate_lab", rowCount: 6840, updatedAt: "2024-01-15" },
-  { id: "4", name: "Netflix Original Titles", description: "Release dates, genres, and ratings", author: "streaming_db", rowCount: 1200, updatedAt: "2024-02-20" },
-  { id: "5", name: "US Federal Holidays", description: "Official observances from 1970 to 2030", author: "gov_data", rowCount: 480, updatedAt: "2023-12-01" },
-  { id: "6", name: "Periodic Table of Elements", description: "Atomic number, weight, group, and state", author: "chem_ref", rowCount: 118, updatedAt: "2023-09-10" },
+  { id: "sample-1", name: "World Population by Country", description: "Census estimates from 2020–2024", author: "un_data", rowCount: 195, updatedAt: "2024-03-01" },
+  { id: "sample-2", name: "S&P 500 Companies", description: "Constituents, sectors, and market caps", author: "market_data", rowCount: 503, updatedAt: "2024-04-01" },
+  { id: "sample-3", name: "Global CO₂ Emissions", description: "Annual emissions per country since 1990", author: "climate_lab", rowCount: 6840, updatedAt: "2024-01-15" },
+  { id: "sample-4", name: "Netflix Original Titles", description: "Release dates, genres, and ratings", author: "streaming_db", rowCount: 1200, updatedAt: "2024-02-20" },
+  { id: "sample-5", name: "US Federal Holidays", description: "Official observances from 1970 to 2030", author: "gov_data", rowCount: 480, updatedAt: "2023-12-01" },
+  { id: "sample-6", name: "Periodic Table of Elements", description: "Atomic number, weight, group, and state", author: "chem_ref", rowCount: 118, updatedAt: "2023-09-10" },
 ];
 
 // Sample schemas and data per table id
 const SCHEMAS: Record<string, TableSchema> = {
-  "1": {
+  "sample-1": {
     columns: [
       { key: "country",    label: "Country",          type: "string" },
       { key: "population", label: "Population (2024)", type: "number" },
@@ -20,7 +20,7 @@ const SCHEMAS: Record<string, TableSchema> = {
       { key: "continent",  label: "Continent",         type: "string" },
     ],
   },
-  "6": {
+  "sample-6": {
     columns: [
       { key: "number",  label: "Atomic No.", type: "number" },
       { key: "symbol",  label: "Symbol",     type: "string" },
@@ -34,7 +34,7 @@ const SCHEMAS: Record<string, TableSchema> = {
 };
 
 const DATA: Record<string, TableData> = {
-  "1": {
+  "sample-1": {
     rows: [
       { country: "China",        population: 1_419_321_000, area_km2: 9_596_960, density: 148, continent: "Asia"          },
       { country: "India",        population: 1_441_719_000, area_km2: 3_287_263, density: 438, continent: "Asia"          },
@@ -53,7 +53,7 @@ const DATA: Record<string, TableData> = {
       { country: "Egypt",        population:   107_770_000, area_km2: 1_002_450, density: 107, continent: "Africa"        },
     ],
   },
-  "6": {
+  "sample-6": {
     rows: [
       { number:  1, symbol: "H",  name: "Hydrogen",   weight:   1.008, group:  1, period: 1, state: "Gas"     },
       { number:  2, symbol: "He", name: "Helium",     weight:   4.003, group: 18, period: 1, state: "Gas"     },
