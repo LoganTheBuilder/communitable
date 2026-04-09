@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
 interface DirectoryEntry {
@@ -11,6 +11,7 @@ interface DirectoryEntry {
   rowCount?: number;
   createdAt: string;
   updatedAt: string;
+  published?: boolean;
 }
 
 interface Props {
@@ -45,6 +46,8 @@ function dateMatchesPreset(dateStr: string, preset: DatePreset): boolean {
   }
 }
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 export default function TableSearch({ tables }: Props) {
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -52,6 +55,9 @@ export default function TableSearch({ tables }: Props) {
   const [author, setAuthor] = useState("");
   const [dateCreated, setDateCreated] = useState<DatePreset>("any");
   const [dateUpdated, setDateUpdated] = useState<DatePreset>("any");
+
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
 
   const authors = useMemo(() => {
     const set = new Set(tables.map((t) => t.author));
@@ -82,6 +88,15 @@ export default function TableSearch({ tables }: Props) {
     setDateCreated("any");
     setDateUpdated("any");
   }
+
+  // Reset to page 0 whenever filters/query change
+  useEffect(() => { setPage(0); }, [query, author, dateCreated, dateUpdated]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const clampedPage = Math.min(page, totalPages - 1);
+  const pageItems = filtered.slice(clampedPage * pageSize, (clampedPage + 1) * pageSize);
+  const firstItem = filtered.length === 0 ? 0 : clampedPage * pageSize + 1;
+  const lastItem = Math.min((clampedPage + 1) * pageSize, filtered.length);
 
   const selectClass = "w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer";
 
@@ -178,16 +193,23 @@ export default function TableSearch({ tables }: Props) {
             No tables match your search.
           </p>
         ) : (
-          filtered.map((table) => (
+          pageItems.map((table) => (
             <Link
               key={table.id}
               href={`/tables/${table.id}`}
               className="flex items-start justify-between p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all group"
             >
               <div className="min-w-0">
-                <p className="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white truncate">
-                  {table.name}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white truncate">
+                    {table.name}
+                  </p>
+                  {table.published === false && (
+                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 rounded-full">
+                      Draft
+                    </span>
+                  )}
+                </div>
                 {table.description && (
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{table.description}</p>
                 )}
@@ -202,6 +224,56 @@ export default function TableSearch({ tables }: Props) {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-4 text-sm pt-1">
+          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs">Per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              className="text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+            <span className="text-xs tabular-nums">
+              {filtered.length === 0 ? "0" : `${firstItem}–${lastItem} of ${filtered.length.toLocaleString()}`}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <PageNavButton onClick={() => setPage(0)} disabled={clampedPage === 0} title="First page">«</PageNavButton>
+            <PageNavButton onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={clampedPage === 0} title="Previous page">‹</PageNavButton>
+            <span className="px-2 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+              {clampedPage + 1} / {totalPages}
+            </span>
+            <PageNavButton onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={clampedPage >= totalPages - 1} title="Next page">›</PageNavButton>
+            <PageNavButton onClick={() => setPage(totalPages - 1)} disabled={clampedPage >= totalPages - 1} title="Last page">»</PageNavButton>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function PageNavButton({
+  onClick, disabled, title, children,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="w-7 h-7 flex items-center justify-center rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base leading-none"
+    >
+      {children}
+    </button>
   );
 }

@@ -16,6 +16,12 @@ export default function AuthNav() {
         <>
           {session?.user ? (
             <>
+              <Link
+                href="/my-tables"
+                className="px-4 py-1.5 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+              >
+                My Tables
+              </Link>
               <span className="text-sm text-zinc-500 dark:text-zinc-400">
                 {session.user.name || session.user.email}
               </span>

@@ -74,7 +74,8 @@ interface Props {
   publishMode?: boolean;
   initialName?: string;
   initialDescription?: string | null;
-  // TODO: add `canEdit: boolean` derived from session once auth is wired up
+  /** When true, user is the table owner (can publish/unpublish) */
+  isOwner?: boolean;
 }
 
 export default function TableEditor({
@@ -85,6 +86,7 @@ export default function TableEditor({
   publishMode = false,
   initialName = "",
   initialDescription = null,
+  isOwner = false,
 }: Props) {
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -251,6 +253,29 @@ export default function TableEditor({
     }
   }
 
+  async function handleSaveDraft() {
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        ...present,
+        name: tableName,
+        description: tableDescription || null,
+        // No publish flag — stays as draft
+      };
+      await fetch(`/api/tables/${tableId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSavedContent(present);
+      setIsDirty(false);
+    } finally {
+      setSaving(false);
+      setMode("view");
+      router.refresh();
+    }
+  }
+
   async function handleHide() {
     setSaving(true);
     try {
@@ -291,12 +316,14 @@ export default function TableEditor({
     tableName,
     tableDescription,
     isPublished,
+    isOwner,
     onNameChange: (name: string) => { setTableName(name); setIsDirty(true); },
     onDescriptionChange: (desc: string) => { setTableDescription(desc); setIsDirty(true); },
     onHide: () => { void handleHide(); },
-    ...((!isPublished) && {
+    ...(!isPublished && isOwner && {
       saveLabel: "Publish",
       savingLabel: "Publishing…",
+      onSaveDraft: () => { void handleSaveDraft(); },
     }),
   };
 

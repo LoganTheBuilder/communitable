@@ -26,10 +26,12 @@ interface Props {
   onBackToEdit: () => void;
   onPreview: () => void;
   onSave: () => void;
+  onSaveDraft?: () => void;
   onExit: () => void;
   tableName?: string;
   tableDescription?: string;
   isPublished?: boolean;
+  isOwner?: boolean;
   onNameChange?: (name: string) => void;
   onDescriptionChange?: (desc: string) => void;
   onHide?: () => void;
@@ -50,10 +52,12 @@ export default function EditorToolbar({
   onBackToEdit,
   onPreview,
   onSave,
+  onSaveDraft,
   onExit,
   tableName = "",
   tableDescription = "",
   isPublished = true,
+  isOwner = false,
   onNameChange,
   onDescriptionChange,
   onHide,
@@ -138,8 +142,8 @@ export default function EditorToolbar({
                   />
                 </div>
 
-                {/* Hide (unpublish) */}
-                {isPublished && (
+                {/* Hide (unpublish) — owner only */}
+                {isPublished && isOwner && (
                   <div className="pt-2 border-t border-zinc-700">
                     {!showHideConfirm ? (
                       <button
@@ -242,6 +246,16 @@ export default function EditorToolbar({
 
           <div className="w-px h-4 bg-zinc-700 mx-1" />
 
+          {onSaveDraft && (
+            <button
+              onClick={onSaveDraft}
+              disabled={saving}
+              className="px-3 py-1 rounded border border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+            >
+              {saving ? "Saving…" : "Save Draft"}
+            </button>
+          )}
+
           <button
             onClick={onSave}
             disabled={saving}
@@ -265,6 +279,16 @@ export default function EditorToolbar({
           <span className="text-zinc-500 text-xs italic">Previewing as viewer</span>
 
           <div className="flex-1" />
+
+          {onSaveDraft && (
+            <button
+              onClick={onSaveDraft}
+              disabled={saving}
+              className="px-3 py-1 rounded border border-zinc-600 text-zinc-300 hover:text-white hover:border-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+            >
+              {saving ? "Saving…" : "Save Draft"}
+            </button>
+          )}
 
           <button
             onClick={onSave}

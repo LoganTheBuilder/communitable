@@ -55,6 +55,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
   const [addingCol, setAddingCol] = useState(false);
   const [newColLabel, setNewColLabel] = useState("");
   const [newColType, setNewColType] = useState<ColumnDef["type"]>("string");
+  const [colNameError, setColNameError] = useState(false);
 
   // ── Keyboard navigation ─────────────────────────────────────
   const [focusedCell, setFocusedCell] = useState<{ row: number; col: number } | null>(null);
@@ -336,7 +337,11 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
   // ── Add column ──────────────────────────────────────────────
 
   function commitAddCol() {
-    if (!newColLabel.trim()) return;
+    if (!newColLabel.trim()) {
+      setColNameError(true);
+      return;
+    }
+    setColNameError(false);
     const key = makeKey(newColLabel, columns);
     onChange({
       columns: [...columns, { key, label: newColLabel.trim(), type: newColType }],
@@ -351,6 +356,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
     setAddingCol(false);
     setNewColLabel("");
     setNewColType("string");
+    setColNameError(false);
   }
 
   // ── Column reorder (drag & drop) ───────────────────────────
@@ -604,13 +610,16 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                       autoFocus
                       placeholder="Column name"
                       value={newColLabel}
-                      onChange={(e) => setNewColLabel(e.target.value)}
+                      onChange={(e) => { setNewColLabel(e.target.value); setColNameError(false); }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") commitAddCol();
                         if (e.key === "Escape") cancelAddCol();
                       }}
-                      className="text-sm px-1.5 py-0.5 border border-zinc-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className={`text-sm px-1.5 py-0.5 border rounded focus:outline-none focus:ring-1 ${colNameError ? "border-red-400 focus:ring-red-400" : "border-zinc-300 focus:ring-blue-400"}`}
                     />
+                    {colNameError && (
+                      <p className="text-xs text-red-500">Column name is required.</p>
+                    )}
                     <div className="flex items-center gap-1">
                       <select
                         value={newColType}

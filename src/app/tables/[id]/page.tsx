@@ -1,18 +1,36 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import TableEditor from "@/components/editor/TableEditor";
 import { getTableMeta } from "@/lib/sample-data";
 import { readTable } from "@/lib/table-store";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth/session";
 import AuthNav from "@/components/AuthNav";
 import ForkButton from "@/components/ForkButton";
+import BackButton from "@/components/BackButton";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const sampleMeta = getTableMeta(id);
+  if (sampleMeta) {
+    return { title: `${sampleMeta.name} — Communitables` };
+  }
+  try {
+    const dbTable = await prisma.table.findUnique({ where: { id }, select: { name: true } });
+    if (dbTable) return { title: `${dbTable.name} — Communitables` };
+  } catch {
+    // ignore
+  }
+  return { title: "Communitables" };
+}
+
 export default async function TablePage({ params }: Props) {
   const { id } = await params;
+  const session = await getSession();
 
   // Try sample data first, then check database for user-created tables
   const sampleMeta = getTableMeta(id);
@@ -22,6 +40,7 @@ export default async function TablePage({ params }: Props) {
     author: string;
     published: boolean;
     forkedFrom: { id: string; name: string; author: string } | null;
+    ownerUserId?: string;
   } | null = null;
 
   if (sampleMeta) {
@@ -33,14 +52,12 @@ export default async function TablePage({ params }: Props) {
       forkedFrom: null,
     };
   } else {
-    // Check database for user-created table
     try {
       const dbTable = await prisma.table.findUnique({
         where: { id },
-        include: { owner: { select: { displayName: true } } },
+        include: { owner: { select: { displayName: true, userId: true } } },
       });
       if (dbTable) {
-        // Fetch fork origin if this table was forked
         let forkOrigin: { id: string; name: string; author: string } | null = null;
         if (dbTable.forkedFromId) {
           const source = await prisma.table.findUnique({
@@ -62,6 +79,7 @@ export default async function TablePage({ params }: Props) {
           author: dbTable.owner.displayName || "Anonymous",
           published: dbTable.published,
           forkedFrom: forkOrigin,
+          ownerUserId: dbTable.owner.userId,
         };
       }
     } catch (err) {
@@ -69,7 +87,45 @@ export default async function TablePage({ params }: Props) {
     }
   }
 
-  if (!tableMeta) notFound();
+  // Table not found at all
+  if (!tableMeta) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
+        <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
+          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">Communitables</Link>
+          <AuthNav />
+        </header>
+        <main className="px-8 py-20 max-w-2xl">
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Table not found</h1>
+          <p className="text-zinc-500 dark:text-zinc-400">
+            That table doesn&apos;t exist, or the author has put it into Draft mode.
+          </p>
+          <BackButton />
+        </main>
+      </div>
+    );
+  }
+
+  const isOwner = !!(session?.user && tableMeta.ownerUserId && session.user.id === tableMeta.ownerUserId);
+
+  // Draft tables are only accessible to the owner
+  if (!tableMeta.published && !isOwner) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
+        <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
+          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">Communitables</Link>
+          <AuthNav />
+        </header>
+        <main className="px-8 py-20 max-w-2xl">
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Table not found</h1>
+          <p className="text-zinc-500 dark:text-zinc-400">
+            That table doesn&apos;t exist, or the author has put it into Draft mode.
+          </p>
+          <BackButton />
+        </main>
+      </div>
+    );
+  }
 
   const stored = await readTable(id);
 
@@ -130,6 +186,7 @@ export default async function TablePage({ params }: Props) {
           publishMode={!tableMeta.published}
           initialName={tableMeta.name}
           initialDescription={tableMeta.description}
+          isOwner={isOwner}
         />
       </main>
     </div>
