@@ -120,12 +120,12 @@ export default function NewTablePage() {
                 id="cols"
                 type="number"
                 min={1}
-                max={26}
+                max={24}
                 value={columns}
                 onChange={(e) => setColumns(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
               />
-              <p className="text-xs text-zinc-400 mt-1">1–26</p>
+              <p className="text-xs text-zinc-400 mt-1">1–24</p>
             </div>
             <div>
               <label htmlFor="rows" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -135,12 +135,13 @@ export default function NewTablePage() {
                 id="rows"
                 type="number"
                 min={0}
-                max={1000}
+                max={100}
                 value={rows}
                 onChange={(e) => setRows(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
               />
-              <p className="text-xs text-zinc-400 mt-1">0–1,000</p>
+       
+              <p className="text-xs text-zinc-400 mt-1">0–100</p>
             </div>
           </div>
 
@@ -151,10 +152,11 @@ export default function NewTablePage() {
           <button
             type="submit"
             disabled={creating}
-            className="w-full py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-2.5 bg-gradient-to-bl from-[#f6339a] to-fuchsia-500 text-white text-sm font-medium rounded-lg hover:from-pink-700 hover:to-fuchsia-600 dark:bg-gradient-to-bl dark:from-[#f6339a] dark:to-fuchsia-500 dark:text-white dark:hover:from-pink-700 dark:hover:to-fuchsia-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {creating ? "Creating…" : "Create Table"}
           </button>
+     
         </form>
       </main>
     </div>

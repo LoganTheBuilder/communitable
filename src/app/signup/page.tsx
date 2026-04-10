@@ -83,7 +83,7 @@ export default function SignUpPage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label htmlFor="name" className="block text-sm text-zinc-600 dark:text-zinc-400 mb-1">
-            Name
+           User Name
           </label>
           <input
             id="name"
@@ -92,7 +92,7 @@ export default function SignUpPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-md text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 focus:border-transparent"
-            placeholder="Your name"
+            placeholder="Your display name"
           />
         </div>
         <div>

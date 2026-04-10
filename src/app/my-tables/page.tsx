@@ -42,9 +42,21 @@ export default async function MyTablesPage() {
           take: 1,
           select: { data: true },
         },
-        _count: { select: { collaborators: true } },
       },
     });
+
+    const tableIds = rows.map((r) => r.id);
+    const editorRows = tableIds.length > 0
+      ? await prisma.tableVersion.findMany({
+          where: { tableId: { in: tableIds } },
+          select: { tableId: true, authorId: true },
+          distinct: ["tableId", "authorId"],
+        })
+      : [];
+    const editorCountMap = editorRows.reduce((map, { tableId }) => {
+      map.set(tableId, (map.get(tableId) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>());
 
     tables = rows.map((t) => {
       const latestData = t.versions[0]?.data as { rows?: unknown[] } | null;
@@ -54,7 +66,7 @@ export default async function MyTablesPage() {
         description: t.description,
         author: profile.displayName || "You",
         rowCount: latestData?.rows?.length,
-        collaboratorCount: t._count.collaborators,
+        collaboratorCount: editorCountMap.get(t.id) ?? 0,
         viewCount: t.viewCount,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),

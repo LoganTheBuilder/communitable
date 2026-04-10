@@ -143,11 +143,15 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
         : col.type === "number" && !isNaN(Number(raw))
         ? Number(raw)
         : raw;
-    onChange({
-      rows: rows.map((r, i) =>
-        i === editingCell.rowIdx ? { ...r, [editingCell.colKey]: parsed } : r
-      ),
-    });
+    // Only push to undo history if the value actually changed
+    const existing = rows[editingCell.rowIdx]?.[editingCell.colKey] ?? null;
+    if (parsed !== existing) {
+      onChange({
+        rows: rows.map((r, i) =>
+          i === editingCell.rowIdx ? { ...r, [editingCell.colKey]: parsed } : r
+        ),
+      });
+    }
     setEditingCell(null);
   }
 
@@ -296,13 +300,16 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
 
   function commitCol() {
     if (!editingCol) return;
-    onChange({
-      columns: columns.map((c) =>
-        c.key === editingCol.key
-          ? { ...c, label: editingCol.label.trim() || c.label, type: editingCol.type }
-          : c
-      ),
-    });
+    const existing = columns.find((c) => c.key === editingCol.key)!;
+    const newLabel = editingCol.label.trim() || existing.label;
+    // Only push to undo history if the label or type actually changed
+    if (newLabel !== existing.label || editingCol.type !== existing.type) {
+      onChange({
+        columns: columns.map((c) =>
+          c.key === editingCol.key ? { ...c, label: newLabel, type: editingCol.type } : c
+        ),
+      });
+    }
     setEditingCol(null);
   }
 

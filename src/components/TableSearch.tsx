@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -19,54 +19,68 @@ interface DirectoryEntry {
 
 interface Props {
   tables: DirectoryEntry[];
-  /** Rendered to the right of the sort chips (e.g. New Table button) */
+  /** Rendered to the left of the sort chips (e.g. New Table button) */
   actions?: ReactNode;
 }
 
 type SortMode = "default" | "popular" | "crowded" | "updated";
-type DatePreset = "any" | "today" | "week" | "month" | "year";
+type DatePreset = "any" | "today" | "week" | "month" | "year" | "custom";
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
-  { value: "any", label: "Any time" },
-  { value: "today", label: "Today" },
-  { value: "week", label: "Past week" },
-  { value: "month", label: "Past month" },
-  { value: "year", label: "Past year" },
+  { value: "any",    label: "Any time" },
+  { value: "today",  label: "Today" },
+  { value: "week",   label: "Past week" },
+  { value: "month",  label: "Past month" },
+  { value: "year",   label: "Past year" },
+  { value: "custom", label: "Custom range…" },
 ];
 
 const SORT_CHIPS: { value: SortMode; label: string; title: string }[] = [
-  { value: "popular",  label: "Popular",  title: "Sort by most views" },
-  { value: "crowded",  label: "Crowded",  title: "Sort by most collaborators" },
-  { value: "updated",  label: "Updated",  title: "Sort by most recently updated" },
+  { value: "popular", label: "Popular",  title: "Sort by most views" },
+  { value: "crowded", label: "Crowded",  title: "Sort by most collaborators" },
+  { value: "updated", label: "Updated",  title: "Sort by most recently updated" },
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-function dateMatchesPreset(dateStr: string, preset: DatePreset): boolean {
+function dateMatchesFilter(
+  dateStr: string,
+  preset: DatePreset,
+  customFrom: string,
+  customTo: string,
+): boolean {
   if (preset === "any") return true;
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  if (preset === "custom") {
+    const d = new Date(dateStr);
+    if (customFrom && d < new Date(customFrom)) return false;
+    if (customTo) {
+      const to = new Date(customTo);
+      to.setHours(23, 59, 59, 999);
+      if (d > to) return false;
+    }
+    return true;
+  }
+  const diff = Date.now() - new Date(dateStr).getTime();
   const day = 86_400_000;
   switch (preset) {
-    case "today":  return diff < day;
-    case "week":   return diff < 7 * day;
-    case "month":  return diff < 30 * day;
-    case "year":   return diff < 365 * day;
+    case "today": return diff < day;
+    case "week":  return diff < 7 * day;
+    case "month": return diff < 30 * day;
+    case "year":  return diff < 365 * day;
   }
 }
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1)   return "just now";
-  if (mins < 60)  return `${mins}m ago`;
+  if (mins < 1)    return "just now";
+  if (mins < 60)   return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24)  return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 7)   return `${days}d ago`;
+  if (days < 7)    return `${days}d ago`;
   const weeks = Math.floor(days / 7);
-  if (weeks < 5)  return `${weeks}w ago`;
+  if (weeks < 5)   return `${weeks}w ago`;
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
@@ -79,9 +93,19 @@ export default function TableSearch({ tables, actions }: Props) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("default");
 
+  // Author combobox
   const [author, setAuthor] = useState("");
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [authorOpen, setAuthorOpen] = useState(false);
+  const authorRef = useRef<HTMLDivElement>(null);
+
+  // Date filters
   const [dateCreated, setDateCreated] = useState<DatePreset>("any");
   const [dateUpdated, setDateUpdated] = useState<DatePreset>("any");
+  const [customCreatedFrom, setCustomCreatedFrom] = useState("");
+  const [customCreatedTo, setCustomCreatedTo] = useState("");
+  const [customUpdatedFrom, setCustomUpdatedFrom] = useState("");
+  const [customUpdatedTo, setCustomUpdatedTo] = useState("");
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
@@ -91,7 +115,52 @@ export default function TableSearch({ tables, actions }: Props) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [tables]);
 
-  const hasActiveFilters = author !== "" || dateCreated !== "any" || dateUpdated !== "any";
+  const filteredAuthors = useMemo(() => {
+    const q = authorQuery.toLowerCase();
+    if (!q) return authors;
+    return authors.filter((a) => a.toLowerCase().includes(q));
+  }, [authors, authorQuery]);
+
+  // Close author dropdown on outside click
+  useEffect(() => {
+    if (!authorOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (authorRef.current && !authorRef.current.contains(e.target as Node)) {
+        setAuthorQuery(author); // restore to last confirmed selection
+        setAuthorOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [authorOpen, author]);
+
+  function selectAuthor(a: string) {
+    setAuthor(a);
+    setAuthorQuery(a);
+    setAuthorOpen(false);
+  }
+
+  function clearAuthor() {
+    setAuthor("");
+    setAuthorQuery("");
+    setAuthorOpen(false);
+  }
+
+  const hasActiveFilters =
+    author !== "" ||
+    dateCreated !== "any" ||
+    dateUpdated !== "any";
+
+  function clearFilters() {
+    setAuthor("");
+    setAuthorQuery("");
+    setDateCreated("any");
+    setDateUpdated("any");
+    setCustomCreatedFrom("");
+    setCustomCreatedTo("");
+    setCustomUpdatedFrom("");
+    setCustomUpdatedTo("");
+  }
 
   const filtered = useMemo(() => {
     return tables.filter((t) => {
@@ -104,30 +173,18 @@ export default function TableSearch({ tables, actions }: Props) {
         if (!match) return false;
       }
       if (author && t.author !== author) return false;
-      if (!dateMatchesPreset(t.createdAt, dateCreated)) return false;
-      if (!dateMatchesPreset(t.updatedAt, dateUpdated)) return false;
+      if (!dateMatchesFilter(t.createdAt, dateCreated, customCreatedFrom, customCreatedTo)) return false;
+      if (!dateMatchesFilter(t.updatedAt, dateUpdated, customUpdatedFrom, customUpdatedTo)) return false;
       return true;
     });
-  }, [tables, query, author, dateCreated, dateUpdated]);
+  }, [tables, query, author, dateCreated, dateUpdated, customCreatedFrom, customCreatedTo, customUpdatedFrom, customUpdatedTo]);
 
   const displayItems = useMemo(() => {
-    if (sortMode === "popular") {
-      return [...filtered].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
-    }
-    if (sortMode === "crowded") {
-      return [...filtered].sort((a, b) => (b.collaboratorCount ?? 0) - (a.collaboratorCount ?? 0));
-    }
-    if (sortMode === "updated") {
-      return [...filtered].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    }
+    if (sortMode === "popular") return [...filtered].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
+    if (sortMode === "crowded") return [...filtered].sort((a, b) => (b.collaboratorCount ?? 0) - (a.collaboratorCount ?? 0));
+    if (sortMode === "updated") return [...filtered].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return filtered;
   }, [filtered, sortMode]);
-
-  function clearFilters() {
-    setAuthor("");
-    setDateCreated("any");
-    setDateUpdated("any");
-  }
 
   function handleRandom() {
     if (filtered.length === 0) return;
@@ -135,8 +192,7 @@ export default function TableSearch({ tables, actions }: Props) {
     router.push(`/tables/${pick.id}`);
   }
 
-  // Reset to page 0 whenever filters, query, or sort change
-  useEffect(() => { setPage(0); }, [query, author, dateCreated, dateUpdated, sortMode]);
+  useEffect(() => { setPage(0); }, [query, author, dateCreated, dateUpdated, customCreatedFrom, customCreatedTo, customUpdatedFrom, customUpdatedTo, sortMode]);
 
   const totalPages = Math.max(1, Math.ceil(displayItems.length / pageSize));
   const clampedPage = Math.min(page, totalPages - 1);
@@ -145,10 +201,11 @@ export default function TableSearch({ tables, actions }: Props) {
   const lastItem = Math.min((clampedPage + 1) * pageSize, displayItems.length);
 
   const selectClass = "w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer";
+  const dateInputClass = "flex-1 text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 min-w-0";
 
   return (
     <div className="space-y-3 max-w-4xl">
-      {/* Action bar: sort chips + actions slot */}
+      {/* Action bar */}
       <div className="flex items-center gap-2 flex-wrap">
         {actions && <div className="mr-2">{actions}</div>}
         {SORT_CHIPS.map((chip) => (
@@ -220,31 +277,135 @@ export default function TableSearch({ tables, actions }: Props) {
               </button>
             </div>
           </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Author combobox */}
             <div>
               <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Author</label>
-              <select value={author} onChange={(e) => setAuthor(e.target.value)} className={selectClass}>
-                <option value="">All authors</option>
-                {authors.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <div ref={authorRef} className="relative">
+                <input
+                  type="text"
+                  value={authorQuery}
+                  onChange={(e) => {
+                    setAuthorQuery(e.target.value);
+                    setAuthor("");
+                    setAuthorOpen(true);
+                  }}
+                  onFocus={() => setAuthorOpen(true)}
+                  placeholder="All authors"
+                  className={[
+                    "w-full text-sm border rounded-md px-2 py-1.5 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400",
+                    author
+                      ? "border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-zinc-100 font-medium pr-7"
+                      : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 pr-2",
+                  ].join(" ")}
+                />
+                {author && (
+                  <button
+                    onMouseDown={(e) => { e.preventDefault(); clearAuthor(); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xs"
+                    aria-label="Clear author"
+                  >
+                    ✕
+                  </button>
+                )}
+                {authorOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg z-20">
+                    {!authorQuery && (
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); clearAuthor(); }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-zinc-400 dark:text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      >
+                        All authors
+                      </button>
+                    )}
+                    {filteredAuthors.length === 0 ? (
+                      <p className="px-3 py-1.5 text-xs text-zinc-400 dark:text-zinc-500">No matches</p>
+                    ) : (
+                      filteredAuthors.map((a) => (
+                        <button
+                          key={a}
+                          onMouseDown={(e) => { e.preventDefault(); selectAuthor(a); }}
+                          className={[
+                            "w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800",
+                            author === a
+                              ? "font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800"
+                              : "text-zinc-700 dark:text-zinc-300",
+                          ].join(" ")}
+                        >
+                          {a}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Topic (placeholder) */}
             <div>
               <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Topic</label>
               <select disabled className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
                 <option>Coming soon</option>
               </select>
             </div>
+
+            {/* Date Created */}
             <div>
               <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Date Created</label>
-              <select value={dateCreated} onChange={(e) => setDateCreated(e.target.value as DatePreset)} className={selectClass}>
+              <select
+                value={dateCreated}
+                onChange={(e) => setDateCreated(e.target.value as DatePreset)}
+                className={selectClass}
+              >
                 {DATE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
+              {dateCreated === "custom" && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <input
+                    type="date"
+                    value={customCreatedFrom}
+                    onChange={(e) => setCustomCreatedFrom(e.target.value)}
+                    className={dateInputClass}
+                  />
+                  <span className="text-xs text-zinc-400 shrink-0">–</span>
+                  <input
+                    type="date"
+                    value={customCreatedTo}
+                    onChange={(e) => setCustomCreatedTo(e.target.value)}
+                    className={dateInputClass}
+                  />
+                </div>
+              )}
             </div>
+
+            {/* Date Updated */}
             <div>
               <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Date Updated</label>
-              <select value={dateUpdated} onChange={(e) => setDateUpdated(e.target.value as DatePreset)} className={selectClass}>
+              <select
+                value={dateUpdated}
+                onChange={(e) => setDateUpdated(e.target.value as DatePreset)}
+                className={selectClass}
+              >
                 {DATE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
+              {dateUpdated === "custom" && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <input
+                    type="date"
+                    value={customUpdatedFrom}
+                    onChange={(e) => setCustomUpdatedFrom(e.target.value)}
+                    className={dateInputClass}
+                  />
+                  <span className="text-xs text-zinc-400 shrink-0">–</span>
+                  <input
+                    type="date"
+                    value={customUpdatedTo}
+                    onChange={(e) => setCustomUpdatedTo(e.target.value)}
+                    className={dateInputClass}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -292,9 +453,7 @@ export default function TableSearch({ tables, actions }: Props) {
                   <span>{table.rowCount.toLocaleString()} rows</span>
                 )}
                 {table.collaboratorCount != null && (
-                  <span>
-                    {table.collaboratorCount} collaborator{table.collaboratorCount !== 1 ? "s" : ""}
-                  </span>
+                  <span>{table.collaboratorCount} collaborator{table.collaboratorCount !== 1 ? "s" : ""}</span>
                 )}
                 <span title={new Date(table.updatedAt).toLocaleString()}>
                   Updated {relativeTime(table.updatedAt)}

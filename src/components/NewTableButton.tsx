@@ -19,8 +19,9 @@ export default function NewTableButton() {
     <button
       onClick={handleClick}
       disabled={isPending}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300 transition-colors font-medium disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gradient-to-bl from-[#f6339a] to-fuchsia-500 text-white rounded-md hover:from-pink-700 hover:to-fuchsia-600 dark:bg-gradient-to-bl dark:from-[#f6339a] dark:to-fuchsia-500 dark:text-white dark:hover:from-pink-700 dark:hover:to-fuchsia-600 transition-colors font-medium disabled:opacity-50"
     >
+ 
       + New Table
     </button>
   );
