@@ -19,7 +19,7 @@ export default function AuthNav() {
       .then((r) => r.json())
       .then((d) => setHasUnread(d.hasUnread))
       .catch(() => null);
-  }, [session?.user, pathname]);
+  }, [session?.user?.id, pathname]);
 
   return (
     <nav className="flex items-center gap-3">

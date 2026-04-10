@@ -441,34 +441,22 @@ export default function TableSearch({ tables, actions }: Props) {
                     {table.name}
                   </p>
                   {table.published === false && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 rounded-full">
-                      Draft
-                    </span>
+                    <Badge color="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400">Draft</Badge>
                   )}
                   {(table.viewCount ?? 0) >= HOT_THRESHOLD && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 rounded-full">
-                      Hot
-                    </span>
+                    <Badge color="bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400">Hot</Badge>
                   )}
                   {(table.collaboratorCount ?? 0) >= CROWDED_THRESHOLD && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400 rounded-full">
-                      Crowded
-                    </span>
+                    <Badge color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Crowded</Badge>
                   )}
                   {Date.now() - new Date(table.createdAt).getTime() < NEW_THRESHOLD_MS && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-full">
-                      New
-                    </span>
+                    <Badge color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">New</Badge>
                   )}
                   {table.notification === "new-collaborator" && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-full">
-                      New collaborator(s)
-                    </span>
+                    <Badge color="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">New collaborator(s)</Badge>
                   )}
                   {table.notification === "updated-recently" && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400 rounded-full">
-                      Updated recently
-                    </span>
+                    <Badge color="bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400">Updated recently</Badge>
                   )}
                 </div>
                 {table.description && (
@@ -522,6 +510,14 @@ export default function TableSearch({ tables, actions }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function Badge({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <span className={`shrink-0 px-1.5 py-0.5 text-xs font-medium rounded-full ${color}`}>
+      {children}
+    </span>
   );
 }
 

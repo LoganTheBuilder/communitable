@@ -523,7 +523,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
           }
         }
 
-        newRows[rowIdx] = { ...newRows[rowIdx], [col.key]: parsed };
+        newRows[rowIdx][col.key] = parsed;
       }
     }
 
