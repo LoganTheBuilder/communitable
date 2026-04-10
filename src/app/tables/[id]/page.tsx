@@ -42,6 +42,8 @@ export default async function TablePage({ params }: Props) {
     published: boolean;
     forkedFrom: { id: string; name: string; author: string } | null;
     ownerUserId?: string;
+    lastUpdatedBy?: string;
+    collaborators?: string[];
   } | null = null;
 
   if (sampleMeta) {
@@ -74,6 +76,19 @@ export default async function TablePage({ params }: Props) {
           }
         }
 
+        const [latestVersion, versionAuthors] = await Promise.all([
+          prisma.tableVersion.findFirst({
+            where: { tableId: id },
+            orderBy: { version: "desc" },
+            include: { author: { select: { displayName: true } } },
+          }).catch(() => null),
+          prisma.tableVersion.findMany({
+            where: { tableId: id, authorId: { not: dbTable.ownerId } },
+            select: { author: { select: { displayName: true } }, authorId: true },
+            distinct: ["authorId"],
+          }).catch(() => []),
+        ]);
+
         tableMeta = {
           name: dbTable.name,
           description: dbTable.description,
@@ -81,6 +96,8 @@ export default async function TablePage({ params }: Props) {
           published: dbTable.published,
           forkedFrom: forkOrigin,
           ownerUserId: dbTable.owner.userId,
+          lastUpdatedBy: latestVersion?.author.displayName || undefined,
+          collaborators: versionAuthors.map((v) => v.author.displayName || "Anonymous"),
         };
       }
     } catch (err) {
@@ -168,10 +185,15 @@ export default async function TablePage({ params }: Props) {
             </p>
           )}
           <div className="mt-3 flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
-            <span>by <span className="text-zinc-600">{tableMeta.author}</span></span>
+            <span>Created by <span className="text-zinc-600 dark:text-zinc-300">{tableMeta.author}</span></span>
+            {tableMeta.lastUpdatedBy && (
+              <span>Last updated by <span className="text-zinc-600 dark:text-zinc-300">{tableMeta.lastUpdatedBy}</span></span>
+            )}
+          </div>
+          <div className="mt-2 flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
             <Link
               href={`/tables/${id}/history`}
-              className="text-zinc-500 hover:text-zinc-800 transition-colors underline underline-offset-2"
+              className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors underline underline-offset-2"
             >
               History
             </Link>
@@ -189,6 +211,7 @@ export default async function TablePage({ params }: Props) {
           initialName={tableMeta.name}
           initialDescription={tableMeta.description}
           isOwner={isOwner}
+          collaborators={tableMeta.collaborators ?? []}
         />
       </main>
     </div>

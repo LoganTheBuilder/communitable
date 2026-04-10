@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/auth-client";
-import ThemeToggle from "@/components/ThemeToggle";
+import ThemeToggleCompact from "@/components/ThemeToggleCompact";
 
 export default function SignUpPage() {
   const [name, setName] = useState("");
@@ -50,7 +50,7 @@ export default function SignUpPage() {
         <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
           Communitables
         </Link>
-        <ThemeToggle />
+        <ThemeToggleCompact />
       </header>
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-sm px-6">{content}</div>

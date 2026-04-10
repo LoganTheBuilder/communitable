@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useReducer, useEffect, useRef, useCallback } from "react";
+import CollaboratorCount from "@/components/CollaboratorCount";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, Row } from "@/lib/types";
 import TableGrid from "@/components/TableGrid";
@@ -76,6 +77,7 @@ interface Props {
   initialDescription?: string | null;
   /** When true, user is the table owner (can publish/unpublish) */
   isOwner?: boolean;
+  collaborators?: string[];
 }
 
 export default function TableEditor({
@@ -87,6 +89,7 @@ export default function TableEditor({
   initialName = "",
   initialDescription = null,
   isOwner = false,
+  collaborators = [],
 }: Props) {
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -333,6 +336,7 @@ export default function TableEditor({
       <div className="flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
         <span>{present.rows.length.toLocaleString()} rows</span>
         <span>{present.columns.length} column{present.columns.length !== 1 ? "s" : ""}</span>
+        <CollaboratorCount collaborators={collaborators} />
       </div>
 
       {mode === "view" && (

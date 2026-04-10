@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import ThemeToggle from "@/components/ThemeToggle";
+import ThemeToggleCompact from "@/components/ThemeToggleCompact";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -30,7 +30,7 @@ export default function ForgotPasswordPage() {
         <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
           Communitables
         </Link>
-        <ThemeToggle />
+        <ThemeToggleCompact />
       </header>
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-sm px-6">{content}</div>

@@ -9,66 +9,32 @@ export default function ThemeToggle() {
     setDark(document.documentElement.classList.contains("dark"));
   }, []);
 
-  function setTheme(toDark: boolean) {
-    setDark(toDark);
-    document.documentElement.classList.toggle("dark", toDark);
-    try { localStorage.setItem("theme", toDark ? "dark" : "light"); } catch {}
+  function toggle() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
   }
 
   return (
-    <div className="flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden text-xs">
-      {([      
-        {
-          name: "Light",
-          icon: (
-            <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor">
-              <circle cx="10" cy="10" r="4" fill="currentColor" />
-              <g strokeWidth="1.5">
-                <line x1="10" y1="2" x2="10" y2="0" />
-                <line x1="10" y1="18" x2="10" y2="20" />
-                <line x1="2" y1="10" x2="0" y2="10" />
-                <line x1="18" y1="10" x2="20" y2="10" />
-                <line x1="15.07" y1="4.93" x2="16.48" y2="3.52" />
-                <line x1="4.93" y1="15.07" x2="3.52" y2="16.48" />
-                <line x1="15.07" y1="15.07" x2="16.48" y2="16.48" />
-                <line x1="4.93" y1="4.93" x2="3.52" y2="3.52" />
-              </g>
-            </svg>
-          ),
-        },
-        {
-          name: "Dark",
-          icon: (
-            <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor">
-              <path
-                d="M15.5 15.5a7 7 0 1 1-7-11 7 7 0 0 0 7 11z"
-                fill="currentColor"
-                stroke="none"
-              />
-            </svg>
-          ),
-        },
-      ] as const).map(({ name, icon }) => {
-        const isActive = name === "Dark" ? dark : !dark;
-        return (
-          <button
-            key={name}
-            onClick={() => setTheme(name === "Dark")}
-            className={`px-2.5 py-1 transition-colors flex items-center justify-center ${
-              isActive
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-            }`}
-            aria-label={name === "Dark" ? "Enable dark mode" : "Enable light mode"}
-            type="button"
-          >
-            <span className={name === "Dark" ? "inline-flex items-end" : ""} style={name === "Dark" ? { transform: "translateY(-2px)" } : undefined}>
-              {icon}
-            </span>
-          </button>
-     
-        );
-      })}
-    </div>
+    <button
+      onClick={toggle}
+      className="flex items-center justify-between w-full gap-3 text-sm text-zinc-600 dark:text-zinc-300"
+      type="button"
+      aria-label="Toggle dark mode"
+    >
+      <span>Dark Mode</span>
+      <span
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+          dark ? "bg-blue-500" : "bg-zinc-300 dark:bg-zinc-600"
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+            dark ? "translate-x-4.5" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+    </button>
   );
 }
