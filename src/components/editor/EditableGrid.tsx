@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import type { ColumnDef, Row, CellValue } from "@/lib/types";
 import { useColumnResize } from "@/components/useColumnResize";
 
@@ -13,7 +13,6 @@ interface EditingCell {
 interface EditingCol {
   key: string;
   label: string;
-  type: ColumnDef["type"];
 }
 
 interface Props {
@@ -39,11 +38,27 @@ function compareValues(a: CellValue, b: CellValue, type: ColumnDef["type"]): num
   return String(a).localeCompare(String(b));
 }
 
-const TYPE_LABEL: Record<ColumnDef["type"], string> = {
-  string: "Text",
-  number: "Number",
-  date: "Date",
-};
+
+interface PasteConfirm {
+  pendingColumns: ColumnDef[];
+  pendingRows: Row[];
+  overwriteCount: number;
+}
+
+interface CellPasteSuggest {
+  text: string;
+  anchorRowIdx: number;
+  anchorColIdx: number;
+}
+
+function parseTSV(text: string): string[][] {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trimEnd()
+    .split("\n")
+    .map((line) => line.split("\t"));
+}
 
 export default function EditableGrid({ columns, rows, onChange }: Props) {
   // ── Column resize ───────────────────────────────────────────
@@ -54,8 +69,12 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
   const [editingCol, setEditingCol] = useState<EditingCol | null>(null);
   const [addingCol, setAddingCol] = useState(false);
   const [newColLabel, setNewColLabel] = useState("");
-  const [newColType, setNewColType] = useState<ColumnDef["type"]>("string");
   const [colNameError, setColNameError] = useState(false);
+  const [pasteConfirm, setPasteConfirm] = useState<PasteConfirm | null>(null);
+  const [cellPasteSuggest, setCellPasteSuggest] = useState<CellPasteSuggest | null>(null);
+  const [openColMenu, setOpenColMenu] = useState<string | null>(null);
+  const [insertColHover, setInsertColHover] = useState<number | null>(null);
+  const [insertRowHover, setInsertRowHover] = useState<number | null>(null);
 
   // ── Keyboard navigation ─────────────────────────────────────
   const [focusedCell, setFocusedCell] = useState<{ row: number; col: number } | null>(null);
@@ -71,6 +90,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
 
   const gridRef = useRef<HTMLDivElement>(null);
   const skipBlurRef = useRef(false);
+  const colMenuRef = useRef<HTMLDivElement>(null);
 
   // ── Display rows (filtered + sorted, mapped to originals) ───
   const displayRows = useMemo(() => {
@@ -119,8 +139,24 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
     }
   }, [editingCell, focusedCell]);
 
-  // ── Cell editing ────────────────────────────────────────────
+  // Dismiss cell-paste suggestion when editing ends (commit, escape, or click away)
+  useEffect(() => {
+    if (!editingCell) setCellPasteSuggest(null);
+  }, [editingCell]);
 
+  // Close column dropdown when clicking outside it
+  useEffect(() => {
+    if (!openColMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) {
+        setOpenColMenu(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openColMenu]);
+
+  // ── Cell editing ────────────────────────────────────────────
   function startCellAt(displayRow: number, colIdx: number) {
     const { originalIdx, row } = displayRows[displayRow];
     const col = columns[colIdx];
@@ -164,7 +200,6 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
   }
 
   // ── Focus navigation ────────────────────────────────────────
-
   function moveFocus(dRow: number, dCol: number, wrap = false) {
     if (!focusedCell) return;
     let newRow = focusedCell.row + dRow;
@@ -295,18 +330,17 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
   // ── Column header ───────────────────────────────────────────
 
   function startCol(col: ColumnDef) {
-    setEditingCol({ key: col.key, label: col.label, type: col.type });
+    setEditingCol({ key: col.key, label: col.label });
   }
 
   function commitCol() {
     if (!editingCol) return;
     const existing = columns.find((c) => c.key === editingCol.key)!;
     const newLabel = editingCol.label.trim() || existing.label;
-    // Only push to undo history if the label or type actually changed
-    if (newLabel !== existing.label || editingCol.type !== existing.type) {
+    if (newLabel !== existing.label) {
       onChange({
         columns: columns.map((c) =>
-          c.key === editingCol.key ? { ...c, label: newLabel, type: editingCol.type } : c
+          c.key === editingCol.key ? { ...c, label: newLabel } : c
         ),
       });
     }
@@ -351,19 +385,56 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
     setColNameError(false);
     const key = makeKey(newColLabel, columns);
     onChange({
-      columns: [...columns, { key, label: newColLabel.trim(), type: newColType }],
+      columns: [...columns, { key, label: newColLabel.trim(), type: "string" }],
       rows: rows.map((r) => ({ ...r, [key]: null })),
     });
     setAddingCol(false);
     setNewColLabel("");
-    setNewColType("string");
   }
 
   function cancelAddCol() {
     setAddingCol(false);
     setNewColLabel("");
-    setNewColType("string");
     setColNameError(false);
+  }
+
+  // ── Column menu actions ─────────────────────────────────────
+
+  function moveColToFirst(colIdx: number) {
+    const newCols = [...columns];
+    const [col] = newCols.splice(colIdx, 1);
+    newCols.unshift(col);
+    onChange({ columns: newCols });
+    setOpenColMenu(null);
+  }
+
+  function moveColToLast(colIdx: number) {
+    const newCols = [...columns];
+    const [col] = newCols.splice(colIdx, 1);
+    newCols.push(col);
+    onChange({ columns: newCols });
+    setOpenColMenu(null);
+  }
+
+  function insertColAt(idx: number) {
+    const label = `Column ${columns.length + 1}`;
+    const key = makeKey(label, columns);
+    const newCol: ColumnDef = { key, label, type: "string" };
+    const newCols = [...columns.slice(0, idx), newCol, ...columns.slice(idx)];
+    onChange({
+      columns: newCols,
+      rows: rows.map((r) => ({ ...r, [key]: null })),
+    });
+    setOpenColMenu(null);
+    setInsertColHover(null);
+  }
+
+  function insertRowAfter(originalIdx: number) {
+    const blank = Object.fromEntries(columns.map((c) => [c.key, null]));
+    onChange({
+      rows: [...rows.slice(0, originalIdx + 1), blank, ...rows.slice(originalIdx + 1)],
+    });
+    setInsertRowHover(null);
   }
 
   // ── Column reorder (drag & drop) ───────────────────────────
@@ -391,10 +462,174 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
     setDragOverCol(null);
   }
 
+  // ── Paste from external spreadsheet ────────────────────────
+
+  function computeTablePaste(
+    text: string,
+    anchorRow: number,
+    anchorCol: number
+  ): PasteConfirm {
+    const grid = parseTSV(text);
+    const pastedRowCount = grid.length;
+    const pastedColCount = Math.max(...grid.map((r) => r.length));
+
+    // Extend columns if the paste is wider than what exists
+    let newColumns = [...columns];
+    const colsNeeded = anchorCol + pastedColCount - columns.length;
+    for (let i = 0; i < colsNeeded; i++) {
+      const label = `Column ${columns.length + i + 1}`;
+      const key = makeKey(label, newColumns);
+      newColumns.push({ key, label, type: "string" });
+    }
+
+    // Clone rows and seed any new columns with null
+    let newRows: Row[] = rows.map((r) => ({ ...r }));
+    const addedCols = newColumns.slice(columns.length);
+    if (addedCols.length > 0) {
+      newRows = newRows.map((r) => ({
+        ...r,
+        ...Object.fromEntries(addedCols.map((c) => [c.key, null])),
+      }));
+    }
+
+    // Extend rows if the paste is taller than what exists
+    const rowsNeeded = anchorRow + pastedRowCount - newRows.length;
+    for (let i = 0; i < rowsNeeded; i++) {
+      newRows.push(Object.fromEntries(newColumns.map((c) => [c.key, null])));
+    }
+
+    // Apply pasted values and count overwrites
+    let overwriteCount = 0;
+    for (let r = 0; r < pastedRowCount; r++) {
+      const rowIdx = anchorRow + r;
+      for (let c = 0; c < grid[r].length; c++) {
+        const colIdx = anchorCol + c;
+        const col = newColumns[colIdx];
+        const raw = grid[r][c];
+        const parsed: CellValue =
+          raw === ""
+            ? null
+            : col.type === "number" && !isNaN(Number(raw))
+            ? Number(raw)
+            : raw;
+
+        // Only count as an overwrite if the cell existed before this paste
+        const wasExistingRow = rowIdx < rows.length;
+        const wasExistingCol = colIdx < columns.length;
+        if (wasExistingRow && wasExistingCol) {
+          const existing = rows[rowIdx][col.key];
+          if (existing !== null && existing !== undefined) {
+            overwriteCount++;
+          }
+        }
+
+        newRows[rowIdx] = { ...newRows[rowIdx], [col.key]: parsed };
+      }
+    }
+
+    return { pendingColumns: newColumns, pendingRows: newRows, overwriteCount };
+  }
+
+  function applyOrConfirmPaste(result: PasteConfirm) {
+    if (result.overwriteCount > 0) {
+      setPasteConfirm(result);
+    } else {
+      onChange({ columns: result.pendingColumns, rows: result.pendingRows });
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+
+    const isMultiCell = text.includes("\t") || text.trimEnd().includes("\n");
+
+    if (editingCell) {
+      // Cell input handles the paste — but suggest table paste if it looks like spreadsheet data
+      if (isMultiCell) {
+        const anchorColIdx = columns.findIndex((c) => c.key === editingCell.colKey);
+        setCellPasteSuggest({ text, anchorRowIdx: editingCell.rowIdx, anchorColIdx });
+      }
+      return;
+    }
+
+    if (!focusedCell) return;
+    if (!isMultiCell) return;
+
+    e.preventDefault();
+    const anchorRow = displayRows[focusedCell.row].originalIdx;
+    applyOrConfirmPaste(computeTablePaste(text, anchorRow, focusedCell.col));
+  }
+
+  function handleCellPasteAsTable() {
+    if (!cellPasteSuggest) return;
+    const { text, anchorRowIdx, anchorColIdx } = cellPasteSuggest;
+    // Revert the cell edit without committing its current value
+    setEditingCell(null);
+    setCellPasteSuggest(null);
+    applyOrConfirmPaste(computeTablePaste(text, anchorRowIdx, anchorColIdx));
+  }
+
+  function confirmPaste() {
+    if (!pasteConfirm) return;
+    onChange({ columns: pasteConfirm.pendingColumns, rows: pasteConfirm.pendingRows });
+    setPasteConfirm(null);
+  }
+
   // ── Render ──────────────────────────────────────────────────
 
   return (
     <div className="space-y-3">
+      {/* Cell paste → table suggestion */}
+      {cellPasteSuggest && (
+        <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 text-sm">
+          <span className="text-amber-800 dark:text-amber-300">
+            Did you mean to paste your clipboard as a table?
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setCellPasteSuggest(null)}
+              className="px-2.5 py-1 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Dismiss
+            </button>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleCellPasteAsTable}
+              className="px-2.5 py-1 rounded text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+            >
+              Paste as table
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Paste overwrite confirmation */}
+      {pasteConfirm && (
+        <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 text-sm">
+          <span className="text-amber-800 dark:text-amber-300">
+            This will overwrite{" "}
+            <strong>{pasteConfirm.overwriteCount} existing {pasteConfirm.overwriteCount === 1 ? "cell" : "cells"}</strong>.
+            Continue?
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setPasteConfirm(null)}
+              className="px-2.5 py-1 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmPaste}
+              className="px-2.5 py-1 rounded text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+            >
+              Paste anyway
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filter bar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
@@ -457,6 +692,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
         ref={gridRef}
         tabIndex={0}
         onKeyDown={handleGridKeyDown}
+        onPaste={handlePaste}
         className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 focus:outline-none"
       >
         <table className="w-full text-sm border-collapse" style={{ minWidth: 28 + columns.reduce((sum, col) => sum + getWidth(col.key), 0) + 48, tableLayout: "fixed" }}>
@@ -510,42 +746,19 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                     style={{ width: getWidth(col.key) }}
                   >
                     {isEditing ? (
-                      <div
-                        className="flex flex-col gap-1"
-                        onBlur={(e) => {
-                          // Only commit when focus leaves the entire editing container
-                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                            commitCol();
-                          }
+                      <input
+                        autoFocus
+                        value={editingCol.label}
+                        onChange={(e) =>
+                          setEditingCol({ ...editingCol, label: e.target.value })
+                        }
+                        onBlur={commitCol}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitCol();
+                          if (e.key === "Escape") setEditingCol(null);
                         }}
-                      >
-                        <input
-                          autoFocus
-                          value={editingCol.label}
-                          onChange={(e) =>
-                            setEditingCol({ ...editingCol, label: e.target.value })
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") commitCol();
-                            if (e.key === "Escape") setEditingCol(null);
-                          }}
-                          className="w-full text-sm font-medium px-1.5 py-0.5 border border-zinc-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-900"
-                        />
-                        <select
-                          value={editingCol.type}
-                          onChange={(e) =>
-                            setEditingCol({
-                              ...editingCol,
-                              type: e.target.value as ColumnDef["type"],
-                            })
-                          }
-                          className="text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none cursor-pointer"
-                        >
-                          <option value="string">Text</option>
-                          <option value="number">Number</option>
-                          <option value="date">Date</option>
-                        </select>
-                      </div>
+                        className="w-full text-sm font-medium px-1.5 py-0.5 border border-zinc-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-900"
+                      />
                     ) : (
                       <div className="flex items-center justify-between gap-1 group/col">
                         <button
@@ -554,27 +767,54 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                           title="Sort column"
                         >
                           <span className="truncate">{col.label}</span>
-                          <span className="text-[10px] text-zinc-400 font-normal shrink-0">
-                            {TYPE_LABEL[col.type]}
-                          </span>
                           <SortIcon active={sortActive} dir={sort?.dir ?? "asc"} />
                         </button>
                         <div className="flex items-center gap-0.5 shrink-0">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startCol(col);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); startCol(col); }}
                             className="opacity-0 group-hover/col:opacity-100 text-zinc-400 hover:text-zinc-700 transition-opacity text-xs p-0.5"
                             title="Rename column"
                           >
                             ✎
                           </button>
+                          {/* Column options dropdown */}
+                          <div className="relative" ref={openColMenu === col.key ? colMenuRef : null}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenColMenu(openColMenu === col.key ? null : col.key);
+                              }}
+                              className="opacity-0 group-hover/col:opacity-100 text-zinc-400 hover:text-zinc-700 transition-opacity text-xs px-0.5 leading-none"
+                              title="Column options"
+                            >
+                              ▾
+                            </button>
+                            {openColMenu === col.key && (
+                              <div className="absolute right-0 top-full mt-1 z-30 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-0.5 min-w-[130px]">
+                                <button
+                                  onClick={() => moveColToFirst(colIdx)}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                >
+                                  Move to First
+                                </button>
+                                <button
+                                  onClick={() => moveColToLast(colIdx)}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                >
+                                  Move to Last
+                                </button>
+                                <hr className="my-0.5 border-zinc-100 dark:border-zinc-700" />
+                                <button
+                                  onClick={() => insertColAt(colIdx + 1)}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                >
+                                  Insert New
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteCol(col.key);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); deleteCol(col.key); }}
                             className="opacity-0 group-hover/col:opacity-100 text-zinc-400 hover:text-red-500 transition-opacity text-xs"
                             title={`Delete "${col.label}"`}
                           >
@@ -589,6 +829,26 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                       onClick={(e) => e.stopPropagation()}
                       className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-400/40 transition-colors z-10"
                     />
+                    {/* Column gap insert indicator (shows between col i-1 and col i) */}
+                    {colIdx > 0 && (
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-3 -translate-x-1/2 z-20 flex items-center justify-center"
+                        onMouseEnter={() => setInsertColHover(colIdx)}
+                        onMouseLeave={() => setInsertColHover(null)}
+                      >
+                        {insertColHover === colIdx && (
+                          <button
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => insertColAt(colIdx)}
+                            className="w-6 h-6 rounded-full bg-blue-500 text-white text-[16px] leading-none flex items-center justify-center hover:bg-blue-600 shadow-sm"
+                            title="Insert column here"
+                          >
+                            +
+                          </button>
+                     
+                        )}
+                      </div>
+                    )}
                   </th>
                 );
               })}
@@ -612,7 +872,7 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                 }}
               >
                 {addingCol ? (
-                  <div className="flex flex-col gap-1 min-w-[150px]">
+                  <div className="flex flex-col gap-1 min-w-[140px]">
                     <input
                       autoFocus
                       placeholder="Column name"
@@ -628,17 +888,6 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                       <p className="text-xs text-red-500">Column name is required.</p>
                     )}
                     <div className="flex items-center gap-1">
-                      <select
-                        value={newColType}
-                        onChange={(e) =>
-                          setNewColType(e.target.value as ColumnDef["type"])
-                        }
-                        className="flex-1 text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none"
-                      >
-                        <option value="string">Text</option>
-                        <option value="number">Number</option>
-                        <option value="date">Date</option>
-                      </select>
                       <button
                         onClick={commitAddCol}
                         className="text-xs text-emerald-600 hover:text-emerald-700 font-medium px-1"
@@ -680,12 +929,12 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
               </tr>
             ) : (
               displayRows.map(({ row, originalIdx }, displayIdx) => (
+                <React.Fragment key={originalIdx}>
                 <tr
-                  key={originalIdx}
                   className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 group/row"
                 >
-                  {/* Delete-row button */}
-                  <td className="w-7 px-1 text-center align-middle">
+                  {/* Delete-row button + row gap insert indicator */}
+                  <td className="w-7 px-1 text-center align-middle relative">
                     <button
                       onClick={() => deleteRow(originalIdx)}
                       className="opacity-0 group-hover/row:opacity-100 w-5 h-5 inline-flex items-center justify-center rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all text-xs"
@@ -760,6 +1009,32 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                   {/* Spacer under the add-col header */}
                   <td className="border-l border-zinc-100 dark:border-zinc-800" />
                 </tr>
+                {/* Row gap — hover zone for insert-row indicator */}
+                <tr
+                  onMouseEnter={() => setInsertRowHover(displayIdx)}
+                  onMouseLeave={() => setInsertRowHover(null)}
+                  style={{ height: 0 }}
+                >
+                  <td
+                    colSpan={columns.length + 2}
+                    className="p-0 relative"
+                    style={{ height: 6, lineHeight: 0 }}
+                  >
+                    {insertRowHover === displayIdx && (
+                      <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => insertRowAfter(originalIdx)}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-blue-500 text-white text-[15px] leading-none flex items-center justify-center hover:bg-blue-600 shadow-sm"
+                        title="Insert row here"
+                      >
+                        +
+                      </button>
+                 
+                 
+                    )}
+                  </td>
+                </tr>
+                </React.Fragment>
               ))
             )}
 

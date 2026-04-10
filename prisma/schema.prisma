@@ -92,15 +92,16 @@ model Profile {
 }
 
 model Table {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  published    Boolean  @default(false)
-  viewCount    Int      @default(0)
-  ownerId      String
-  forkedFromId String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String    @id @default(cuid())
+  name              String
+  description       String?
+  published         Boolean   @default(false)
+  viewCount         Int       @default(0)
+  ownerLastViewedAt DateTime?
+  ownerId           String
+  forkedFromId      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   owner         Profile        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   forkedFrom    Table?         @relation("TableForks", fields: [forkedFromId], references: [id], onDelete: SetNull)

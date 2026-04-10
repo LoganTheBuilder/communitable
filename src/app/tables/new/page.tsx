@@ -154,6 +154,7 @@ export default function NewTablePage() {
             disabled={creating}
             className="w-full py-2.5 bg-gradient-to-bl from-[#f6339a] to-fuchsia-500 text-white text-sm font-medium rounded-lg hover:from-pink-700 hover:to-fuchsia-600 dark:bg-gradient-to-bl dark:from-[#f6339a] dark:to-fuchsia-500 dark:text-white dark:hover:from-pink-700 dark:hover:to-fuchsia-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
+            {/* TODO spinner anim */}
             {creating ? "Creating…" : "Create Table"}
           </button>
      

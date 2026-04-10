@@ -30,6 +30,7 @@ export default async function MyTablesPage() {
     createdAt: string;
     updatedAt: string;
     published: boolean;
+    notification?: "new-collaborator" | "updated-recently" | null;
   }[] = [];
 
   if (profile) {
@@ -46,6 +47,8 @@ export default async function MyTablesPage() {
     });
 
     const tableIds = rows.map((r) => r.id);
+
+    // Collaborator counts (distinct authors per table)
     const editorRows = tableIds.length > 0
       ? await prisma.tableVersion.findMany({
           where: { tableId: { in: tableIds } },
@@ -57,6 +60,48 @@ export default async function MyTablesPage() {
       map.set(tableId, (map.get(tableId) ?? 0) + 1);
       return map;
     }, new Map<string, number>());
+
+    // All versions by non-owner for notification computation
+    const otherVersions = tableIds.length > 0
+      ? await prisma.tableVersion.findMany({
+          where: { tableId: { in: tableIds }, authorId: { not: profile.id } },
+          select: { tableId: true, authorId: true, createdAt: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
+
+    // Build a map of ownerLastViewedAt per table
+    const lastViewedMap = new Map(
+      rows.map((t) => [t.id, t.ownerLastViewedAt ?? new Date(0)])
+    );
+
+    // Compute notification for each table
+    function computeNotification(tableId: string): "new-collaborator" | "updated-recently" | null {
+      const lastViewed = lastViewedMap.get(tableId) ?? new Date(0);
+      const versions = otherVersions.filter((v) => v.tableId === tableId);
+      if (versions.length === 0) return null;
+
+      // Partition authors by whether they first appeared before or after lastViewed
+      const authorsBefore = new Set<string>();
+      const authorsAfter = new Set<string>();
+      for (const v of versions) {
+        if (v.createdAt <= lastViewed) {
+          authorsBefore.add(v.authorId);
+        } else {
+          authorsAfter.add(v.authorId);
+        }
+      }
+
+      // New collaborator = someone after lastViewed who never appeared before
+      const newCollaborators = [...authorsAfter].filter((a) => !authorsBefore.has(a));
+      if (newCollaborators.length > 0) return "new-collaborator";
+
+      // Updated recently = any version by a non-owner after lastViewed
+      const hasRecentUpdate = versions.some((v) => v.createdAt > lastViewed);
+      if (hasRecentUpdate) return "updated-recently";
+
+      return null;
+    }
 
     tables = rows.map((t) => {
       const latestData = t.versions[0]?.data as { rows?: unknown[] } | null;
@@ -71,6 +116,7 @@ export default async function MyTablesPage() {
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
         published: t.published,
+        notification: computeNotification(t.id),
       };
     });
   }

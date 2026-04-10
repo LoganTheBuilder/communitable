@@ -15,7 +15,12 @@ interface DirectoryEntry {
   createdAt: string;
   updatedAt: string;
   published?: boolean;
+  notification?: "new-collaborator" | "updated-recently" | null;
 }
+
+const HOT_THRESHOLD = 25;
+const CROWDED_THRESHOLD = 3;
+const NEW_THRESHOLD_MS = 86_400_000; // 24 hours
 
 interface Props {
   tables: DirectoryEntry[];
@@ -431,13 +436,38 @@ export default function TableSearch({ tables, actions }: Props) {
               className="flex items-start justify-between p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all group"
             >
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white truncate">
                     {table.name}
                   </p>
                   {table.published === false && (
                     <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 rounded-full">
                       Draft
+                    </span>
+                  )}
+                  {(table.viewCount ?? 0) >= HOT_THRESHOLD && (
+                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 rounded-full">
+                      Hot
+                    </span>
+                  )}
+                  {(table.collaboratorCount ?? 0) >= CROWDED_THRESHOLD && (
+                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400 rounded-full">
+                      Crowded
+                    </span>
+                  )}
+                  {Date.now() - new Date(table.createdAt).getTime() < NEW_THRESHOLD_MS && (
+                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-full">
+                      New
+                    </span>
+                  )}
+                  {table.notification === "new-collaborator" && (
+                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-full">
+                      New collaborator(s)
+                    </span>
+                  )}
+                  {table.notification === "updated-recently" && (
+                    <span className="shrink-0 px-1.5 py-0.5 text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400 rounded-full">
+                      Updated recently
                     </span>
                   )}
                 </div>
