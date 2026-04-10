@@ -15,7 +15,7 @@ export const auth = betterAuth({
       try {
         await sendEmail({
           to: user.email,
-          subject: "Reset your password",
+          subject: "Communitables - Reset your password",
           html: `
             <h2>Reset your password</h2>
             <p>Click the link below to reset your password. This link expires in 1 hour.</p>
@@ -42,7 +42,7 @@ export const auth = betterAuth({
 
         await sendEmail({
           to: user.email,
-          subject: "Verify your email",
+          subject: "Communitables - Verify your email",
           html: `
             <h2>Verify your email</h2>
             <p>Click the link below to verify your email address.</p>

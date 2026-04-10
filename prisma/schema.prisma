@@ -96,6 +96,7 @@ model Table {
   name         String
   description  String?
   published    Boolean  @default(false)
+  viewCount    Int      @default(0)
   ownerId      String
   forkedFromId String?
   createdAt    DateTime @default(now())

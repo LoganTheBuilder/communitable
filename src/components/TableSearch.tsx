@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface DirectoryEntry {
   id: string;
@@ -9,6 +10,8 @@ interface DirectoryEntry {
   description: string | null;
   author: string;
   rowCount?: number;
+  collaboratorCount?: number;
+  viewCount?: number;
   createdAt: string;
   updatedAt: string;
   published?: boolean;
@@ -16,8 +19,11 @@ interface DirectoryEntry {
 
 interface Props {
   tables: DirectoryEntry[];
+  /** Rendered to the right of the sort chips (e.g. New Table button) */
+  actions?: ReactNode;
 }
 
+type SortMode = "default" | "popular" | "crowded" | "updated";
 type DatePreset = "any" | "today" | "week" | "month" | "year";
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
@@ -28,6 +34,14 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: "year", label: "Past year" },
 ];
 
+const SORT_CHIPS: { value: SortMode; label: string; title: string }[] = [
+  { value: "popular",  label: "Popular",  title: "Sort by most views" },
+  { value: "crowded",  label: "Crowded",  title: "Sort by most collaborators" },
+  { value: "updated",  label: "Updated",  title: "Sort by most recently updated" },
+];
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 function dateMatchesPreset(dateStr: string, preset: DatePreset): boolean {
   if (preset === "any") return true;
   const date = new Date(dateStr);
@@ -35,22 +49,35 @@ function dateMatchesPreset(dateStr: string, preset: DatePreset): boolean {
   const diff = now.getTime() - date.getTime();
   const day = 86_400_000;
   switch (preset) {
-    case "today":
-      return diff < day;
-    case "week":
-      return diff < 7 * day;
-    case "month":
-      return diff < 30 * day;
-    case "year":
-      return diff < 365 * day;
+    case "today":  return diff < day;
+    case "week":   return diff < 7 * day;
+    case "month":  return diff < 30 * day;
+    case "year":   return diff < 365 * day;
   }
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1)   return "just now";
+  if (mins < 60)  return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7)   return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5)  return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
 
-export default function TableSearch({ tables }: Props) {
+export default function TableSearch({ tables, actions }: Props) {
+  const router = useRouter();
+
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("default");
 
   const [author, setAuthor] = useState("");
   const [dateCreated, setDateCreated] = useState<DatePreset>("any");
@@ -83,33 +110,77 @@ export default function TableSearch({ tables }: Props) {
     });
   }, [tables, query, author, dateCreated, dateUpdated]);
 
+  const displayItems = useMemo(() => {
+    if (sortMode === "popular") {
+      return [...filtered].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
+    }
+    if (sortMode === "crowded") {
+      return [...filtered].sort((a, b) => (b.collaboratorCount ?? 0) - (a.collaboratorCount ?? 0));
+    }
+    if (sortMode === "updated") {
+      return [...filtered].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }
+    return filtered;
+  }, [filtered, sortMode]);
+
   function clearFilters() {
     setAuthor("");
     setDateCreated("any");
     setDateUpdated("any");
   }
 
-  // Reset to page 0 whenever filters/query change
-  useEffect(() => { setPage(0); }, [query, author, dateCreated, dateUpdated]);
+  function handleRandom() {
+    if (filtered.length === 0) return;
+    const pick = filtered[Math.floor(Math.random() * filtered.length)];
+    router.push(`/tables/${pick.id}`);
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // Reset to page 0 whenever filters, query, or sort change
+  useEffect(() => { setPage(0); }, [query, author, dateCreated, dateUpdated, sortMode]);
+
+  const totalPages = Math.max(1, Math.ceil(displayItems.length / pageSize));
   const clampedPage = Math.min(page, totalPages - 1);
-  const pageItems = filtered.slice(clampedPage * pageSize, (clampedPage + 1) * pageSize);
-  const firstItem = filtered.length === 0 ? 0 : clampedPage * pageSize + 1;
-  const lastItem = Math.min((clampedPage + 1) * pageSize, filtered.length);
+  const pageItems = displayItems.slice(clampedPage * pageSize, (clampedPage + 1) * pageSize);
+  const firstItem = displayItems.length === 0 ? 0 : clampedPage * pageSize + 1;
+  const lastItem = Math.min((clampedPage + 1) * pageSize, displayItems.length);
 
   const selectClass = "w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer";
 
   return (
     <div className="space-y-3 max-w-4xl">
+      {/* Action bar: sort chips + actions slot */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {actions && <div className="mr-2">{actions}</div>}
+        {SORT_CHIPS.map((chip) => (
+          <button
+            key={chip.value}
+            title={chip.title}
+            onClick={() => setSortMode((prev) => prev === chip.value ? "default" : chip.value)}
+            className={[
+              "px-3 py-1.5 text-sm rounded-md border transition-colors font-medium",
+              sortMode === chip.value
+                ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-100"
+                : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500 dark:hover:text-zinc-100",
+            ].join(" ")}
+          >
+            {chip.label}
+          </button>
+        ))}
+        <button
+          title="Go to a random table"
+          onClick={handleRandom}
+          disabled={filtered.length === 0}
+          className="px-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          Random
+        </button>
+      </div>
+
       {/* Search bar */}
       <div className="relative">
         <svg
           className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"
         >
           <circle cx="6.5" cy="6.5" r="4.5" />
           <path d="M10.5 10.5L14 14" strokeLinecap="round" />
@@ -149,7 +220,6 @@ export default function TableSearch({ tables }: Props) {
               </button>
             </div>
           </div>
-
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Author</label>
@@ -182,13 +252,13 @@ export default function TableSearch({ tables }: Props) {
 
       {(query || hasActiveFilters) && (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          {filtered.length} table{filtered.length !== 1 ? "s" : ""} found
+          {displayItems.length} table{displayItems.length !== 1 ? "s" : ""} found
         </p>
       )}
 
       {/* Table list */}
       <div className="grid gap-3">
-        {filtered.length === 0 ? (
+        {displayItems.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-8 text-center">
             No tables match your search.
           </p>
@@ -211,22 +281,32 @@ export default function TableSearch({ tables }: Props) {
                   )}
                 </div>
                 {table.description && (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{table.description}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-1">{table.description}</p>
                 )}
                 <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">by {table.author}</p>
               </div>
-              {table.rowCount != null && (
-                <span className="ml-6 shrink-0 text-xs text-zinc-400 dark:text-zinc-500 tabular-nums pt-0.5">
-                  {table.rowCount.toLocaleString()} rows
+
+              {/* Right-side stats */}
+              <div className="ml-6 shrink-0 flex flex-col items-end gap-1 pt-0.5 text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                {table.rowCount != null && (
+                  <span>{table.rowCount.toLocaleString()} rows</span>
+                )}
+                {table.collaboratorCount != null && (
+                  <span>
+                    {table.collaboratorCount} collaborator{table.collaboratorCount !== 1 ? "s" : ""}
+                  </span>
+                )}
+                <span title={new Date(table.updatedAt).toLocaleString()}>
+                  Updated {relativeTime(table.updatedAt)}
                 </span>
-              )}
+              </div>
             </Link>
           ))
         )}
       </div>
 
       {/* Pagination */}
-      {filtered.length > 0 && (
+      {displayItems.length > 0 && (
         <div className="flex items-center justify-between gap-4 text-sm pt-1">
           <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
             <span className="text-xs">Per page:</span>
@@ -235,12 +315,10 @@ export default function TableSearch({ tables }: Props) {
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
               className="text-xs border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 cursor-pointer"
             >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
+              {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
             <span className="text-xs tabular-nums">
-              {filtered.length === 0 ? "0" : `${firstItem}–${lastItem} of ${filtered.length.toLocaleString()}`}
+              {displayItems.length === 0 ? "0" : `${firstItem}–${lastItem} of ${displayItems.length.toLocaleString()}`}
             </span>
           </div>
           <div className="flex items-center gap-1">

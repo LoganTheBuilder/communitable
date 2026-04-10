@@ -13,6 +13,8 @@ interface DirectoryEntry {
   description: string | null;
   author: string;
   rowCount?: number;
+  collaboratorCount?: number;
+  viewCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +33,7 @@ export default async function Home() {
           take: 1,
           select: { data: true },
         },
+        _count: { select: { collaborators: true } },
       },
     });
     dbTables = rows.map((t) => {
@@ -41,6 +44,8 @@ export default async function Home() {
         description: t.description,
         author: t.owner.displayName || "Anonymous",
         rowCount: latestData?.rows?.length,
+        collaboratorCount: t._count.collaborators,
+        viewCount: t.viewCount,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
       };
@@ -80,12 +85,11 @@ export default async function Home() {
         <p className="text-zinc-500 dark:text-zinc-400 text-lg">
           Browse, fork, and collaborate on structured data — no account required to explore.
         </p>
-        <NewTableButton />
       </section>
 
       {/* Search + Table directory */}
       <main className="px-8 pb-20">
-        <TableSearch tables={allTables} />
+        <TableSearch tables={allTables} actions={<NewTableButton />} />
       </main>
     </div>
   );

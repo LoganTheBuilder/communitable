@@ -25,6 +25,8 @@ export default async function MyTablesPage() {
     description: string | null;
     author: string;
     rowCount?: number;
+    collaboratorCount?: number;
+    viewCount?: number;
     createdAt: string;
     updatedAt: string;
     published: boolean;
@@ -40,6 +42,7 @@ export default async function MyTablesPage() {
           take: 1,
           select: { data: true },
         },
+        _count: { select: { collaborators: true } },
       },
     });
 
@@ -51,6 +54,8 @@ export default async function MyTablesPage() {
         description: t.description,
         author: profile.displayName || "You",
         rowCount: latestData?.rows?.length,
+        collaboratorCount: t._count.collaborators,
+        viewCount: t.viewCount,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
         published: t.published,
@@ -74,16 +79,18 @@ export default async function MyTablesPage() {
         <p className="text-zinc-500 dark:text-zinc-400 text-lg">
           Your published tables and drafts.
         </p>
-        <NewTableButton />
       </section>
 
       <main className="px-8 pb-20">
         {tables.length === 0 ? (
-          <p className="text-sm text-zinc-400 dark:text-zinc-500">
-            You haven&apos;t created any tables yet.
-          </p>
+          <div className="max-w-4xl">
+            <p className="text-sm text-zinc-400 dark:text-zinc-500 mb-4">
+              You haven&apos;t created any tables yet.
+            </p>
+            <NewTableButton />
+          </div>
         ) : (
-          <TableSearch tables={tables} />
+          <TableSearch tables={tables} actions={<NewTableButton />} />
         )}
       </main>
     </div>

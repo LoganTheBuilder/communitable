@@ -8,6 +8,7 @@ import { getSession } from "@/lib/auth/session";
 import AuthNav from "@/components/AuthNav";
 import ForkButton from "@/components/ForkButton";
 import BackButton from "@/components/BackButton";
+import ViewTracker from "@/components/ViewTracker";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -131,6 +132,7 @@ export default async function TablePage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
+      <ViewTracker tableId={id} />
       {/* Nav */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
         <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
