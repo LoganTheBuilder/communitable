@@ -162,6 +162,66 @@ function formatSort(sort: DefaultSort | null | undefined, columns: ColumnDef[]):
   return `${col?.label ?? sort.key} (${sort.dir})`;
 }
 
+type DisplayRow = {
+  type: "diff";
+  diff: DiffRow;
+} | {
+  type: "ellipsis";
+}
+
+interface DiffStats {
+  added: number;
+  removed: number;
+  modified: number;
+  unchanged: number;
+}
+
+function buildDisplayRows(rows: DiffRow[]): { display: DisplayRow[]; stats: DiffStats } {
+  const stats: DiffStats = { added: 0, removed: 0, modified: 0, unchanged: 0 };
+  const changedIndices: number[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const s = rows[i].status;
+    if (s === "unchanged") stats.unchanged++;
+    else {
+      if (s === "added") stats.added++;
+      else if (s === "removed") stats.removed++;
+      else stats.modified++;
+      changedIndices.push(i);
+    }
+  }
+
+  if (changedIndices.length === 0) return { display: [], stats };
+  if (changedIndices.length === rows.length) {
+    return { display: rows.map((diff) => ({ type: "diff" as const, diff })), stats };
+  }
+
+  const display: DisplayRow[] = [];
+  let lastShown = -1;
+
+  for (const idx of changedIndices) {
+    if (idx > lastShown + 1) {
+      display.push({ type: "ellipsis" });
+    }
+    display.push({ type: "diff", diff: rows[idx] });
+    lastShown = idx;
+  }
+
+  if (lastShown < rows.length - 1) {
+    display.push({ type: "ellipsis" });
+  }
+
+  return { display, stats };
+}
+
+function EllipsisRow({ colSpan }: { colSpan: number }) {
+  return (
+    <tr className="border-b border-zinc-100 dark:border-zinc-800">
+      <td colSpan={colSpan} className="px-3 py-1 text-center text-xs text-zinc-400 dark:text-zinc-500">…</td>
+    </tr>
+  );
+}
+
 export default function DiffView({ left, right, leftLabel, rightLabel }: Props) {
   const leftCols = left.schema.columns;
   const rightCols = right.schema.columns;
@@ -170,11 +230,10 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
 
   const { allKeys, colLabels, colStatus } = mergeColumns(leftCols, rightCols);
   const rows = diffRows(leftRows, rightRows, leftCols, rightCols, allKeys);
+  const { display: displayRows, stats } = buildDisplayRows(rows);
+  const { added, removed, modified } = stats;
 
-  // Stats
-  const added = rows.filter((r) => r.status === "added").length;
-  const removed = rows.filter((r) => r.status === "removed").length;
-  const modified = rows.filter((r) => r.status === "modified").length;
+  const rightColLabels = new Map(rightCols.map((c) => [c.key, c.label]));
 
   // Default sort diff
   const leftSort = left.schema.defaultSort;
@@ -189,7 +248,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
         <span className="text-green-700 dark:text-green-400 font-medium">+{added} added</span>
         <span className="text-red-700 dark:text-red-400 font-medium">-{removed} removed</span>
         <span className="text-yellow-700 dark:text-yellow-400 font-medium">~{modified} changed</span>
-        <span>{rows.filter((r) => r.status === "unchanged").length} unchanged</span>
+        <span>{stats.unchanged} unchanged</span>
       </div>
 
       {/* Default sort change */}
@@ -237,10 +296,13 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                 </tr>
               </thead>
               <tbody>
-                {rows.map((diff, i) => {
+                {displayRows.map((entry, i) => {
+                  if (entry.type === "ellipsis") {
+                    return <EllipsisRow key={`e${i}`} colSpan={allKeys.length} />;
+                  }
+                  const diff = entry.diff;
                   const row = diff.leftRow;
                   if (!row) {
-                    // Added row — show empty placeholder
                     return (
                       <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 bg-green-50/30 dark:bg-green-900/10">
                         {allKeys.map((key) => (
@@ -303,18 +365,20 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                       >
                         {status === "removed"
                           ? colLabels.get(key)
-                          : (right.schema.columns.find((c) => c.key === key)?.label ??
-                            colLabels.get(key))}
+                          : (rightColLabels.get(key) ?? colLabels.get(key))}
                       </th>
                     );
                   })}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((diff, i) => {
+                {displayRows.map((entry, i) => {
+                  if (entry.type === "ellipsis") {
+                    return <EllipsisRow key={`e${i}`} colSpan={allKeys.length} />;
+                  }
+                  const diff = entry.diff;
                   const row = diff.rightRow;
                   if (!row) {
-                    // Removed row — show empty placeholder
                     return (
                       <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 bg-red-50/30 dark:bg-red-900/10">
                         {allKeys.map((key) => (
