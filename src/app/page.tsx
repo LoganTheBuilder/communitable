@@ -44,8 +44,11 @@ export default async function Home() {
           distinct: ["tableId", "authorId"],
         })
       : [];
-    const editorCountMap = editorRows.reduce((map, { tableId }) => {
-      map.set(tableId, (map.get(tableId) ?? 0) + 1);
+    const ownerMap = new Map(rows.map((r) => [r.id, r.ownerId]));
+    const editorCountMap = editorRows.reduce((map, { tableId, authorId }) => {
+      if (authorId !== ownerMap.get(tableId)) {
+        map.set(tableId, (map.get(tableId) ?? 0) + 1);
+      }
       return map;
     }, new Map<string, number>());
 

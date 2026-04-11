@@ -26,6 +26,8 @@ interface Props {
   tables: DirectoryEntry[];
   /** Rendered to the left of the sort chips (e.g. New Table button) */
   actions?: ReactNode;
+  /** Hide the "Random" table button */
+  hideRandom?: boolean;
 }
 
 type SortMode = "default" | "popular" | "crowded" | "updated";
@@ -91,7 +93,7 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
-export default function TableSearch({ tables, actions }: Props) {
+export default function TableSearch({ tables, actions, hideRandom }: Props) {
   const router = useRouter();
 
   const [query, setQuery] = useState("");
@@ -228,14 +230,16 @@ export default function TableSearch({ tables, actions }: Props) {
             {chip.label}
           </button>
         ))}
-        <button
-          title="Go to a random table"
-          onClick={handleRandom}
-          disabled={filtered.length === 0}
-          className="px-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
-        >
-          Random
-        </button>
+        {!hideRandom && (
+          <button
+            title="Go to a random table"
+            onClick={handleRandom}
+            disabled={filtered.length === 0}
+            className="px-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            Random
+          </button>
+        )}
       </div>
 
       {/* Search bar */}

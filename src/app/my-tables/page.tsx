@@ -65,8 +65,10 @@ export default async function MyTablesPage() {
         ])
       : [[], []];
 
-    const editorCountMap = editorRows.reduce((map, { tableId }) => {
-      map.set(tableId, (map.get(tableId) ?? 0) + 1);
+    const editorCountMap = editorRows.reduce((map, { tableId, authorId }) => {
+      if (authorId !== profile.id) {
+        map.set(tableId, (map.get(tableId) ?? 0) + 1);
+      }
       return map;
     }, new Map<string, number>());
 
@@ -120,7 +122,7 @@ export default async function MyTablesPage() {
             <NewTableButton />
           </div>
         ) : (
-          <TableSearch tables={tables} actions={<NewTableButton />} />
+          <TableSearch tables={tables} actions={<NewTableButton />} hideRandom />
         )}
       </main>
     </div>
