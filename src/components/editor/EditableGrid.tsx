@@ -752,24 +752,47 @@ export default function EditableGrid({ columns, rows, onChange }: Props) {
                         onChange={(e) =>
                           setEditingCol({ ...editingCol, label: e.target.value })
                         }
-                        onBlur={commitCol}
+                        onBlur={() => {
+                          if (skipBlurRef.current) {
+                            skipBlurRef.current = false;
+                            return;
+                          }
+                          commitCol();
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") commitCol();
                           if (e.key === "Escape") setEditingCol(null);
+                          if (e.key === "Tab" && !e.shiftKey) {
+                            e.preventDefault();
+                            skipBlurRef.current = true;
+                            commitCol();
+                            const nextColIdx = colIdx + 1;
+                            if (nextColIdx < columns.length) {
+                              startCol(columns[nextColIdx]);
+                            } else if (displayRows.length > 0) {
+                              startCellAt(0, 0);
+                            }
+                          }
                         }}
                         className="w-full text-sm font-medium px-1.5 py-0.5 border border-zinc-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-900"
                       />
                     ) : (
                       <div className="flex items-center justify-between gap-1 group/col">
-                        <button
-                          onClick={() => handleHeaderSortClick(col.key)}
-                          className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 text-left min-w-0 flex-1"
-                          title="Sort column"
+                        <span
+                          onClick={() => startCol(col)}
+                          className="truncate text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-text min-w-0 flex-1"
+                          title="Click to rename"
                         >
-                          <span className="truncate">{col.label}</span>
-                          <SortIcon active={sortActive} dir={sort?.dir ?? "asc"} />
-                        </button>
+                          {col.label}
+                        </span>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            onClick={() => handleHeaderSortClick(col.key)}
+                            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-0.5"
+                            title="Sort column"
+                          >
+                            <SortIcon active={sortActive} dir={sort?.dir ?? "asc"} />
+                          </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); startCol(col); }}
                             className="opacity-0 group-hover/col:opacity-100 text-zinc-400 hover:text-zinc-700 transition-opacity text-xs p-0.5"

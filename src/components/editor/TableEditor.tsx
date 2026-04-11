@@ -325,7 +325,6 @@ export default function TableEditor({
     onHide: () => { void handleHide(); },
     ...(!isPublished && isOwner && {
       saveLabel: "Publish",
-      savingLabel: "Publishing…",
       onSaveDraft: () => { void handleSaveDraft(); },
     }),
   };

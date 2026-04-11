@@ -25,3 +25,17 @@ export interface TableMeta {
   rowCount: number;
   updatedAt: string;
 }
+
+export interface DirectoryEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  author: string;
+  rowCount?: number;
+  collaboratorCount?: number;
+  viewCount?: number;
+  createdAt: string;
+  updatedAt: string;
+  published?: boolean;
+  notification?: "new-collaborator" | "updated-recently" | null;
+}

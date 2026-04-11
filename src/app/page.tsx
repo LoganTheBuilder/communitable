@@ -5,20 +5,9 @@ import { getSession } from "@/lib/auth/session";
 import TableSearch from "@/components/TableSearch";
 import AuthNav from "@/components/AuthNav";
 import NewTableButton from "@/components/NewTableButton";
+import type { DirectoryEntry } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-interface DirectoryEntry {
-  id: string;
-  name: string;
-  description: string | null;
-  author: string;
-  rowCount?: number;
-  collaboratorCount?: number;
-  viewCount?: number;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export default async function Home() {
   // Fetch user-created published tables from the database

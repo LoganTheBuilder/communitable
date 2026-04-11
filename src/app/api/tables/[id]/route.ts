@@ -43,8 +43,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
       profileId = profile.id;
     }
 
-    // Ensure the table record exists
+    // Fetch previous table state + latest version in parallel (before upsert overwrites name/description)
     const meta = getTableMeta(id);
+    const [prevTable, latest] = await Promise.all([
+      prisma.table.findUnique({
+        where: { id },
+        select: { name: true, description: true },
+      }),
+      prisma.tableVersion.findFirst({
+        where: { tableId: id },
+        orderBy: { version: "desc" },
+        select: { version: true, schema: true, data: true },
+      }),
+    ]);
+
+    // Ensure the table record exists
     await prisma.table.upsert({
       where: { id },
       update: {
@@ -62,13 +75,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
       },
     });
 
-    // Get latest version (number + content) to check for changes
-    const latest = await prisma.tableVersion.findFirst({
-      where: { tableId: id },
-      orderBy: { version: "desc" },
-      select: { version: true, schema: true, data: true },
-    });
-
     const newSchema = JSON.parse(JSON.stringify({ columns: body.columns, defaultSort: body.defaultSort ?? null }));
     const newData = JSON.parse(JSON.stringify({ rows: body.rows }));
 
@@ -76,7 +82,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const schemaChanged = JSON.stringify(latest?.schema) !== JSON.stringify(newSchema);
     const dataChanged = JSON.stringify(latest?.data) !== JSON.stringify(newData);
 
-    if (schemaChanged || dataChanged || !latest) {
+    // Build version message for metadata changes
+    const metaChanges: string[] = [];
+    if (body.name !== undefined && prevTable && body.name !== prevTable.name) {
+      metaChanges.push("Name");
+    }
+    if (body.description !== undefined && prevTable && body.description !== prevTable.description) {
+      metaChanges.push("Description");
+    }
+    const message = metaChanges.length > 0 ? `${metaChanges.join("/")} updated` : null;
+
+    if (schemaChanged || dataChanged || metaChanges.length > 0 || !latest) {
       const nextVersion = (latest?.version ?? 0) + 1;
       await prisma.tableVersion.create({
         data: {
@@ -85,6 +101,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           schema: newSchema,
           data: newData,
           authorId: profileId,
+          ...(message && { message }),
         },
       });
     }

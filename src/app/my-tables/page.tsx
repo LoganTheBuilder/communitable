@@ -5,8 +5,8 @@ import { getProfileByUserId } from "@/lib/auth/profile";
 import { prisma } from "@/lib/prisma";
 import { computeNotifications } from "@/lib/notifications";
 import AuthNav from "@/components/AuthNav";
-import TableSearch from "@/components/TableSearch";
-import NewTableButton from "@/components/NewTableButton";
+import MyTablesTabs from "./MyTablesTabs";
+import type { DirectoryEntry } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,21 +20,11 @@ export default async function MyTablesPage() {
 
   const profile = await getProfileByUserId(session.user.id);
 
-  let tables: {
-    id: string;
-    name: string;
-    description: string | null;
-    author: string;
-    rowCount?: number;
-    collaboratorCount?: number;
-    viewCount?: number;
-    createdAt: string;
-    updatedAt: string;
-    published: boolean;
-    notification?: "new-collaborator" | "updated-recently" | null;
-  }[] = [];
+  let ownedTables: DirectoryEntry[] = [];
+  let collaboratedTables: DirectoryEntry[] = [];
 
   if (profile) {
+    // --- Owned tables ---
     const rows = await prisma.table.findMany({
       where: { ownerId: profile.id },
       orderBy: { updatedAt: "desc" },
@@ -49,21 +39,28 @@ export default async function MyTablesPage() {
 
     const tableIds = rows.map((r) => r.id);
 
-    // Parallel: collaborator counts + non-owner versions for notifications
-    const [editorRows, otherVersions] = tableIds.length > 0
-      ? await Promise.all([
-          prisma.tableVersion.findMany({
+    // Parallel: collaborator counts, non-owner versions for notifications, and collaborated table IDs
+    const [editorRows, otherVersions, collabVersions] = await Promise.all([
+      tableIds.length > 0
+        ? prisma.tableVersion.findMany({
             where: { tableId: { in: tableIds } },
             select: { tableId: true, authorId: true },
             distinct: ["tableId", "authorId"],
-          }),
-          prisma.tableVersion.findMany({
+          })
+        : Promise.resolve([]),
+      tableIds.length > 0
+        ? prisma.tableVersion.findMany({
             where: { tableId: { in: tableIds }, authorId: { not: profile.id } },
             select: { tableId: true, authorId: true, createdAt: true },
             orderBy: { createdAt: "asc" },
-          }),
-        ])
-      : [[], []];
+          })
+        : Promise.resolve([]),
+      prisma.tableVersion.findMany({
+        where: { authorId: profile.id },
+        select: { tableId: true },
+        distinct: ["tableId"],
+      }),
+    ]);
 
     const editorCountMap = editorRows.reduce((map, { tableId, authorId }) => {
       if (authorId !== profile.id) {
@@ -77,7 +74,7 @@ export default async function MyTablesPage() {
       otherVersions
     );
 
-    tables = rows.map((t) => {
+    ownedTables = rows.map((t) => {
       const latestData = t.versions[0]?.data as { rows?: unknown[] } | null;
       return {
         id: t.id,
@@ -93,6 +90,38 @@ export default async function MyTablesPage() {
         notification: notificationMap.get(t.id) ?? null,
       };
     });
+    const collabTableIds = collabVersions
+      .map((v) => v.tableId)
+      .filter((id) => !tableIds.includes(id));
+
+    if (collabTableIds.length > 0) {
+      const collabRows = await prisma.table.findMany({
+        where: { id: { in: collabTableIds } },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          owner: { select: { displayName: true } },
+          versions: {
+            orderBy: { version: "desc" },
+            take: 1,
+            select: { data: true },
+          },
+        },
+      });
+
+      collaboratedTables = collabRows.map((t) => {
+        const latestData = t.versions[0]?.data as { rows?: unknown[] } | null;
+        return {
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          author: t.owner.displayName || "Unknown",
+          rowCount: latestData?.rows?.length,
+          viewCount: t.viewCount,
+          createdAt: t.createdAt.toISOString(),
+          updatedAt: t.updatedAt.toISOString(),
+        };
+      });
+    }
   }
 
   return (
@@ -104,27 +133,7 @@ export default async function MyTablesPage() {
         <AuthNav />
       </header>
 
-      <section className="px-8 pt-16 pb-10 max-w-4xl">
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">
-          My Tables
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-lg">
-          Your published tables and drafts.
-        </p>
-      </section>
-
-      <main className="px-8 pb-20">
-        {tables.length === 0 ? (
-          <div className="max-w-4xl">
-            <p className="text-sm text-zinc-400 dark:text-zinc-500 mb-4">
-              You haven&apos;t created any tables yet.
-            </p>
-            <NewTableButton />
-          </div>
-        ) : (
-          <TableSearch tables={tables} actions={<NewTableButton />} hideRandom />
-        )}
-      </main>
+      <MyTablesTabs ownedTables={ownedTables} collaboratedTables={collaboratedTables} />
     </div>
   );
 }

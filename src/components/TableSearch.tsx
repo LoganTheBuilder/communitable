@@ -3,20 +3,7 @@
 import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-interface DirectoryEntry {
-  id: string;
-  name: string;
-  description: string | null;
-  author: string;
-  rowCount?: number;
-  collaboratorCount?: number;
-  viewCount?: number;
-  createdAt: string;
-  updatedAt: string;
-  published?: boolean;
-  notification?: "new-collaborator" | "updated-recently" | null;
-}
+import type { DirectoryEntry } from "@/lib/types";
 
 const HOT_THRESHOLD = 25;
 const CROWDED_THRESHOLD = 3;
@@ -255,7 +242,6 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFiltersOpen(true)}
           placeholder="Search tables..."
           className="w-full pl-10 pr-3 py-2.5 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 focus:border-transparent"
         />
@@ -270,155 +256,7 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
         )}
       </div>
 
-      {/* Filter panel */}
-      {filtersOpen && (
-        <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Filters</span>
-            <div className="flex items-center gap-2">
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setFiltersOpen(false)} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
-                Hide
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {/* Author combobox */}
-            <div>
-              <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Author</label>
-              <div ref={authorRef} className="relative">
-                <input
-                  type="text"
-                  value={authorQuery}
-                  onChange={(e) => {
-                    setAuthorQuery(e.target.value);
-                    setAuthor("");
-                    setAuthorOpen(true);
-                  }}
-                  onFocus={() => setAuthorOpen(true)}
-                  placeholder="All authors"
-                  className={[
-                    "w-full text-sm border rounded-md px-2 py-1.5 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400",
-                    author
-                      ? "border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-zinc-100 font-medium pr-7"
-                      : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 pr-2",
-                  ].join(" ")}
-                />
-                {author && (
-                  <button
-                    onMouseDown={(e) => { e.preventDefault(); clearAuthor(); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xs"
-                    aria-label="Clear author"
-                  >
-                    ✕
-                  </button>
-                )}
-                {authorOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg z-20">
-                    {!authorQuery && (
-                      <button
-                        onMouseDown={(e) => { e.preventDefault(); clearAuthor(); }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-zinc-400 dark:text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                      >
-                        All authors
-                      </button>
-                    )}
-                    {filteredAuthors.length === 0 ? (
-                      <p className="px-3 py-1.5 text-xs text-zinc-400 dark:text-zinc-500">No matches</p>
-                    ) : (
-                      filteredAuthors.map((a) => (
-                        <button
-                          key={a}
-                          onMouseDown={(e) => { e.preventDefault(); selectAuthor(a); }}
-                          className={[
-                            "w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800",
-                            author === a
-                              ? "font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800"
-                              : "text-zinc-700 dark:text-zinc-300",
-                          ].join(" ")}
-                        >
-                          {a}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Topic (placeholder) */}
-            <div>
-              <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Topic</label>
-              <select disabled className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
-                <option>Coming soon</option>
-              </select>
-            </div>
-
-            {/* Date Created */}
-            <div>
-              <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Date Created</label>
-              <select
-                value={dateCreated}
-                onChange={(e) => setDateCreated(e.target.value as DatePreset)}
-                className={selectClass}
-              >
-                {DATE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-              {dateCreated === "custom" && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <input
-                    type="date"
-                    value={customCreatedFrom}
-                    onChange={(e) => setCustomCreatedFrom(e.target.value)}
-                    className={dateInputClass}
-                  />
-                  <span className="text-xs text-zinc-400 shrink-0">–</span>
-                  <input
-                    type="date"
-                    value={customCreatedTo}
-                    onChange={(e) => setCustomCreatedTo(e.target.value)}
-                    className={dateInputClass}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Date Updated */}
-            <div>
-              <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Date Updated</label>
-              <select
-                value={dateUpdated}
-                onChange={(e) => setDateUpdated(e.target.value as DatePreset)}
-                className={selectClass}
-              >
-                {DATE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-              {dateUpdated === "custom" && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <input
-                    type="date"
-                    value={customUpdatedFrom}
-                    onChange={(e) => setCustomUpdatedFrom(e.target.value)}
-                    className={dateInputClass}
-                  />
-                  <span className="text-xs text-zinc-400 shrink-0">–</span>
-                  <input
-                    type="date"
-                    value={customUpdatedTo}
-                    onChange={(e) => setCustomUpdatedTo(e.target.value)}
-                    className={dateInputClass}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Filter panel — temporarily removed, will revisit later */}
 
       {(query || hasActiveFilters) && (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
