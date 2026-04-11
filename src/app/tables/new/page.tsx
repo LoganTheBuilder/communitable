@@ -65,7 +65,7 @@ export default function NewTablePage() {
           href="/"
           className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity"
         >
-          Communitables
+          tablebees
         </Link>
         <AuthNav />
       </header>

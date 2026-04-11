@@ -46,7 +46,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
       <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
         <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
-          Communitables
+          tablebees
         </Link>
         <ThemeToggleCompact />
       </header>

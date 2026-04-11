@@ -18,15 +18,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const sampleMeta = getTableMeta(id);
   if (sampleMeta) {
-    return { title: `${sampleMeta.name} — Communitables` };
+    return { title: `${sampleMeta.name} — tablebees` };
   }
   try {
     const dbTable = await prisma.table.findUnique({ where: { id }, select: { name: true } });
-    if (dbTable) return { title: `${dbTable.name} — Communitables` };
+    if (dbTable) return { title: `${dbTable.name} — tablebees` };
   } catch {
     // ignore
   }
-  return { title: "Communitables" };
+  return { title: "tablebees" };
 }
 
 export default async function TablePage({ params }: Props) {
@@ -110,7 +110,7 @@ export default async function TablePage({ params }: Props) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
         <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">Communitables</Link>
+          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">tablebees</Link>
           <AuthNav />
         </header>
         <main className="px-8 py-20 max-w-2xl">
@@ -131,7 +131,7 @@ export default async function TablePage({ params }: Props) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
         <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">Communitables</Link>
+          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">tablebees</Link>
           <AuthNav />
         </header>
         <main className="px-8 py-20 max-w-2xl">
@@ -153,7 +153,7 @@ export default async function TablePage({ params }: Props) {
       {/* Nav */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
         <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
-          Communitables
+          tablebees
         </Link>
         <AuthNav />
       </header>
