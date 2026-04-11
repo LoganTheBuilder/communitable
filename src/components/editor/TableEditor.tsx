@@ -7,7 +7,10 @@ import type { ColumnDef, Row } from "@/lib/types";
 import TableGrid from "@/components/TableGrid";
 import EditableGrid from "@/components/editor/EditableGrid";
 import EditorToolbar from "@/components/editor/EditorToolbar";
+import TableSettingsModal from "@/components/editor/TableSettingsModal";
 import { useSession } from "@/lib/auth-client";
+
+type Editability = "LOCKED" | "APPROVALS" | "OPEN";
 
 type Mode = "view" | "edit" | "preview";
 type SortDir = "asc" | "desc";
@@ -78,6 +81,10 @@ interface Props {
   /** When true, user is the table owner (can publish/unpublish) */
   isOwner?: boolean;
   collaborators?: string[];
+  initialEditability?: Editability;
+  pendingRows?: Row[] | null;
+  pendingColumns?: ColumnDef[] | null;
+  isBanned?: boolean;
 }
 
 export default function TableEditor({
@@ -90,6 +97,10 @@ export default function TableEditor({
   initialDescription = null,
   isOwner = false,
   collaborators = [],
+  initialEditability = "OPEN",
+  pendingRows = null,
+  pendingColumns = null,
+  isBanned = false,
 }: Props) {
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -100,6 +111,8 @@ export default function TableEditor({
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [localPendingRows, setLocalPendingRows] = useState<Row[] | null>(pendingRows);
+  const [localPendingColumns, setLocalPendingColumns] = useState<ColumnDef[] | null>(pendingColumns);
   const [history, dispatch] = useReducer(historyReducer, {
     past: [],
     present: { columns: initialColumns, rows: initialRows, defaultSort: initialDefaultSort },
@@ -230,6 +243,8 @@ export default function TableEditor({
   const [isPublished, setIsPublished] = useState(!publishMode);
   const [tableName, setTableName] = useState(initialName);
   const [tableDescription, setTableDescription] = useState(initialDescription ?? "");
+  const [editability, setEditability] = useState<Editability>(initialEditability);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -240,15 +255,24 @@ export default function TableEditor({
       }
       payload.name = tableName;
       payload.description = tableDescription || null;
-      await fetch(`/api/tables/${tableId}`, {
+      payload.editability = editability;
+      const res = await fetch(`/api/tables/${tableId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        // TODO: include auth token / session once auth is wired up
         body: JSON.stringify(payload),
       });
-      setSavedContent(present);
+      const data = await res.json();
+
+      if (data.pendingApproval) {
+        // Save went to pending approval — revert view to published data and show pending highlights
+        setLocalPendingRows(present.rows);
+        setLocalPendingColumns(present.columns);
+        dispatch({ type: "RESET", content: savedContent });
+      } else {
+        setSavedContent(present);
+        if (!isPublished) setIsPublished(true);
+      }
       setIsDirty(false);
-      if (!isPublished) setIsPublished(true);
     } finally {
       setSaving(false);
       setMode("view");
@@ -263,6 +287,7 @@ export default function TableEditor({
         ...present,
         name: tableName,
         description: tableDescription || null,
+        editability,
         // No publish flag — stays as draft
       };
       await fetch(`/api/tables/${tableId}`, {
@@ -287,6 +312,7 @@ export default function TableEditor({
         unpublish: true,
         name: tableName,
         description: tableDescription || null,
+        editability,
       };
       await fetch(`/api/tables/${tableId}`, {
         method: "PUT",
@@ -316,13 +342,7 @@ export default function TableEditor({
     onSave: () => { void handleSave(); },
     saving,
     onExit: handleExitAttempt,
-    tableName,
-    tableDescription,
-    isPublished,
-    isOwner,
-    onNameChange: (name: string) => { setTableName(name); setIsDirty(true); },
-    onDescriptionChange: (desc: string) => { setTableDescription(desc); setIsDirty(true); },
-    onHide: () => { void handleHide(); },
+    ...(isOwner && { onOpenSettings: () => setShowSettingsModal(true) }),
     ...(!isPublished && isOwner && {
       saveLabel: "Publish",
       onSaveDraft: () => { void handleSaveDraft(); },
@@ -343,19 +363,33 @@ export default function TableEditor({
           columns={present.columns}
           rows={present.rows}
           initialSort={present.defaultSort ?? undefined}
+          pendingRows={localPendingRows ?? undefined}
+          pendingColumns={localPendingColumns ?? undefined}
           toolbarExtra={
-            <button
-              onClick={() => {
-                if (isLoggedIn) {
-                  setMode("edit");
-                } else {
-                  router.push("/signup");
-                }
-              }}
-              className="px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors"
-            >
-              Edit
-            </button>
+            (() => {
+              const editDisabled = isBanned || (editability === "LOCKED" && !isOwner);
+              return (
+                <button
+                  onClick={() => {
+                    if (editDisabled) return;
+                    if (isLoggedIn) {
+                      setMode("edit");
+                    } else {
+                      router.push("/signup");
+                    }
+                  }}
+                  disabled={editDisabled}
+                  title={editDisabled ? "The author has prevented you from making changes." : undefined}
+                  className={
+                    editDisabled
+                      ? "px-3 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 rounded-md text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
+                      : "px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors"
+                  }
+                >
+                  Edit
+                </button>
+              );
+            })()
           }
         />
       )}
@@ -383,6 +417,22 @@ export default function TableEditor({
           />
         </>
       )}
+
+      {/* Table settings modal */}
+      <TableSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        tableName={tableName}
+        tableDescription={tableDescription}
+        editability={editability}
+        isPublished={isPublished}
+        isOwner={isOwner}
+        saving={saving}
+        onNameChange={(name) => { setTableName(name); setIsDirty(true); }}
+        onDescriptionChange={(desc) => { setTableDescription(desc); setIsDirty(true); }}
+        onEditabilityChange={(mode) => { setEditability(mode); setIsDirty(true); }}
+        onHide={() => { void handleHide(); }}
+      />
 
       {/* Unsaved changes warning modal */}
       {showExitWarning && (

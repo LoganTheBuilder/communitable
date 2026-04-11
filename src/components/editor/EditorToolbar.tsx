@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import type { ColumnDef } from "@/lib/types";
 
 type Mode = "edit" | "preview";
@@ -28,13 +27,7 @@ interface Props {
   onSave: () => void;
   onSaveDraft?: () => void;
   onExit: () => void;
-  tableName?: string;
-  tableDescription?: string;
-  isPublished?: boolean;
-  isOwner?: boolean;
-  onNameChange?: (name: string) => void;
-  onDescriptionChange?: (desc: string) => void;
-  onHide?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export default function EditorToolbar({
@@ -54,29 +47,8 @@ export default function EditorToolbar({
   onSave,
   onSaveDraft,
   onExit,
-  tableName = "",
-  tableDescription = "",
-  isPublished = true,
-  isOwner = false,
-  onNameChange,
-  onDescriptionChange,
-  onHide,
+  onOpenSettings,
 }: Props) {
-  const [showSettings, setShowSettings] = useState(false);
-  const [showHideConfirm, setShowHideConfirm] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-
-  // Close settings panel when clicking outside
-  useEffect(() => {
-    if (!showSettings) return;
-    const handler = (e: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setShowSettings(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showSettings]);
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white rounded-lg text-sm flex-wrap">
@@ -99,14 +71,10 @@ export default function EditorToolbar({
           <div className="w-px h-4 bg-zinc-700 mx-1" />
 
           {/* Table settings button */}
-          <div className="relative" ref={settingsRef}>
+          {onOpenSettings && (
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-colors ${
-                showSettings
-                  ? "text-white bg-zinc-700"
-                  : "text-zinc-300 hover:text-white hover:bg-zinc-700"
-              }`}
+              onClick={onOpenSettings}
+              className="flex items-center gap-1 px-2.5 py-1 rounded text-xs text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -114,78 +82,7 @@ export default function EditorToolbar({
               </svg>
               Table settings
             </button>
-
-            {/* Settings dropdown */}
-            {showSettings && (
-              <div className="absolute top-full left-0 mt-1 w-80 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 p-4 space-y-4">
-                {/* Table name */}
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Table name</label>
-                  <input
-                    type="text"
-                    value={tableName}
-                    onChange={(e) => onNameChange?.(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-sm bg-zinc-900 border border-zinc-600 rounded-md text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400"
-                    placeholder="Untitled table"
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Description</label>
-                  <textarea
-                    value={tableDescription}
-                    onChange={(e) => onDescriptionChange?.(e.target.value)}
-                    rows={2}
-                    className="w-full px-2.5 py-1.5 text-sm bg-zinc-900 border border-zinc-600 rounded-md text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400 resize-none"
-                    placeholder="Add a description..."
-                  />
-                </div>
-
-                {/* Hide (unpublish) — owner only */}
-                {isPublished && isOwner && (
-                  <div className="pt-2 border-t border-zinc-700">
-                    {!showHideConfirm ? (
-                      <button
-                        onClick={() => setShowHideConfirm(true)}
-                        className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878l4.242 4.242M21 21l-4.879-4.879" />
-                        </svg>
-                        Hide table (move to Draft)
-                      </button>
-                    ) : (
-                      <div className="space-y-2">
-                        <p className="text-xs text-zinc-400">
-                          This will unpublish the table and move it back to Draft. It will no longer be visible to others.
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setShowSettings(false);
-                              setShowHideConfirm(false);
-                              onHide?.();
-                            }}
-                            disabled={saving}
-                            className="px-3 py-1 text-xs rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
-                          >
-                            {saving ? "Hiding..." : "Confirm hide"}
-                          </button>
-                          <button
-                            onClick={() => setShowHideConfirm(false)}
-                            className="px-3 py-1 text-xs rounded text-zinc-400 hover:text-white transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="w-px h-4 bg-zinc-700 mx-1" />
 

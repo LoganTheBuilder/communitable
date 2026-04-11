@@ -3,8 +3,10 @@ import Link from "next/link";
 import TableEditor from "@/components/editor/TableEditor";
 import { getTableMeta } from "@/lib/sample-data";
 import { readTable } from "@/lib/table-store";
+import type { ColumnDef, Row } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
+import { getProfileByUserId } from "@/lib/auth/profile";
 import AuthNav from "@/components/AuthNav";
 import ForkButton from "@/components/ForkButton";
 import BackButton from "@/components/BackButton";
@@ -44,6 +46,7 @@ export default async function TablePage({ params }: Props) {
     ownerUserId?: string;
     lastUpdatedBy?: string;
     collaborators?: string[];
+    editability?: "LOCKED" | "APPROVALS" | "OPEN";
   } | null = null;
 
   if (sampleMeta) {
@@ -83,7 +86,7 @@ export default async function TablePage({ params }: Props) {
             include: { author: { select: { displayName: true } } },
           }).catch(() => null),
           prisma.tableVersion.findMany({
-            where: { tableId: id, authorId: { not: dbTable.ownerId } },
+            where: { tableId: id, authorId: { not: dbTable.ownerId }, status: "PUBLISHED" },
             select: { author: { select: { displayName: true } }, authorId: true },
             distinct: ["authorId"],
           }).catch(() => []),
@@ -98,6 +101,7 @@ export default async function TablePage({ params }: Props) {
           ownerUserId: dbTable.owner.userId,
           lastUpdatedBy: latestVersion?.author.displayName || undefined,
           collaborators: versionAuthors.map((v) => v.author.displayName || "Anonymous"),
+          editability: dbTable.editability,
         };
       }
     } catch (err) {
@@ -146,6 +150,56 @@ export default async function TablePage({ params }: Props) {
   }
 
   const stored = await readTable(id);
+
+  let pendingRows: Row[] | null = null;
+  let pendingColumns: ColumnDef[] | null = null;
+  let isBanned = false;
+  if (session?.user && !isOwner) {
+    try {
+      const profile = await getProfileByUserId(session.user.id);
+      if (profile) {
+        const [ban, pendingVersion] = await Promise.all([
+          prisma.tableBan.findUnique({
+            where: { tableId_profileId: { tableId: id, profileId: profile.id } },
+          }).catch(() => null),
+          tableMeta.editability === "APPROVALS"
+            ? prisma.tableVersion.findFirst({
+                where: { tableId: id, status: "PENDING_APPROVAL", authorId: profile.id },
+                orderBy: { createdAt: "desc" },
+                select: { schema: true, data: true },
+              })
+            : null,
+        ]);
+        isBanned = !!ban;
+        if (pendingVersion?.data) {
+          pendingRows = (pendingVersion.data as { rows: Row[] }).rows;
+        }
+        if (pendingVersion?.schema) {
+          pendingColumns = (pendingVersion.schema as unknown as { columns: ColumnDef[] }).columns;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  // Owner sees any pending version
+  if (isOwner && tableMeta.editability === "APPROVALS" && !pendingRows) {
+    try {
+      const pendingVersion = await prisma.tableVersion.findFirst({
+        where: { tableId: id, status: "PENDING_APPROVAL" },
+        orderBy: { createdAt: "desc" },
+        select: { schema: true, data: true },
+      });
+      if (pendingVersion?.data) {
+        pendingRows = (pendingVersion.data as { rows: Row[] }).rows;
+      }
+      if (pendingVersion?.schema) {
+        pendingColumns = (pendingVersion.schema as unknown as { columns: ColumnDef[] }).columns;
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
@@ -212,6 +266,10 @@ export default async function TablePage({ params }: Props) {
           initialDescription={tableMeta.description}
           isOwner={isOwner}
           collaborators={tableMeta.collaborators ?? []}
+          initialEditability={tableMeta.editability}
+          pendingRows={pendingRows}
+          pendingColumns={pendingColumns}
+          isBanned={isBanned}
         />
       </main>
     </div>

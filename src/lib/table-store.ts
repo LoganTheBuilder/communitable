@@ -10,8 +10,17 @@ export interface StoredTable {
 
 export async function readTable(id: string): Promise<StoredTable> {
   try {
+    const table = await prisma.table.findUnique({
+      where: { id },
+      select: { activeBranch: true },
+    });
+
     const latest = await prisma.tableVersion.findFirst({
-      where: { tableId: id },
+      where: {
+        tableId: id,
+        status: "PUBLISHED",
+        ...(table && { branch: table.activeBranch }),
+      },
       orderBy: { version: "desc" },
       select: { schema: true, data: true },
     });

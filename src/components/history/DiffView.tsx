@@ -78,14 +78,10 @@ function mergeColumns(leftCols: ColumnDef[], rightCols: ColumnDef[]) {
 }
 
 /**
- * Build a row key for matching rows across versions.
- * Uses first column value as a simple identity heuristic.
- * Falls back to row index if no good key.
+ * Build a full-row fingerprint for exact matching across versions.
  */
-function buildRowKey(row: Row, columns: ColumnDef[]): string {
-  if (columns.length === 0) return "";
-  const firstCol = columns[0].key;
-  return String(row[firstCol] ?? "");
+function fingerprint(row: Row, keys: string[]): string {
+  return keys.map((k) => String(row[k] ?? "")).join("\x00");
 }
 
 interface DiffRow {
@@ -98,59 +94,109 @@ function diffRows(
   leftRows: Row[],
   rightRows: Row[],
   leftCols: ColumnDef[],
-  rightCols: ColumnDef[],
+  _rightCols: ColumnDef[],
   allKeys: string[]
 ): DiffRow[] {
-  // Build maps keyed by first-column value
-  const leftMap = new Map<string, Row[]>();
-  for (const row of leftRows) {
-    const key = buildRowKey(row, leftCols);
-    if (!leftMap.has(key)) leftMap.set(key, []);
-    leftMap.get(key)!.push(row);
-  }
-
-  const rightMap = new Map<string, Row[]>();
+  // Pass 1: Match identical rows using full-row fingerprints (count-based)
+  const rightFpCounts = new Map<string, number>();
   for (const row of rightRows) {
-    const key = buildRowKey(row, rightCols);
-    if (!rightMap.has(key)) rightMap.set(key, []);
-    rightMap.get(key)!.push(row);
+    const fp = fingerprint(row, allKeys);
+    rightFpCounts.set(fp, (rightFpCounts.get(fp) ?? 0) + 1);
   }
 
-  const result: DiffRow[] = [];
-  const visitedRight = new Set<string>();
-
-  // Walk left rows in order
-  for (const row of leftRows) {
-    const key = buildRowKey(row, leftCols);
-    const rightCandidates = rightMap.get(key);
-    if (!rightCandidates || rightCandidates.length === 0) {
-      result.push({ leftRow: row, rightRow: null, status: "removed" });
-    } else {
-      const rightRow = rightCandidates.shift()!;
-      visitedRight.add(key);
-      const hasChanges = allKeys.some(
-        (k) => formatCell(row[k] ?? null) !== formatCell(rightRow[k] ?? null)
-      );
-      result.push({
-        leftRow: row,
-        rightRow: rightRow,
-        status: hasChanges ? "modified" : "unchanged",
-      });
+  const leftMatched = new Array<boolean>(leftRows.length).fill(false);
+  for (let i = 0; i < leftRows.length; i++) {
+    const fp = fingerprint(leftRows[i], allKeys);
+    const count = rightFpCounts.get(fp) ?? 0;
+    if (count > 0) {
+      leftMatched[i] = true;
+      rightFpCounts.set(fp, count - 1);
     }
   }
 
-  // Remaining right-only rows
+  // Remaining right rows (not exactly matched) — track by index
+  const rightExactMatched = new Array<boolean>(rightRows.length).fill(false);
+  const rightFpCounts2 = new Map<string, number>();
   for (const row of rightRows) {
-    const key = buildRowKey(row, rightCols);
-    // If there are still unmatched entries in rightMap for this key
-    const remaining = rightMap.get(key);
-    if (remaining && remaining.length > 0) {
-      // This row wasn't consumed above
-      if (remaining.includes(row)) {
-        remaining.splice(remaining.indexOf(row), 1);
-        result.push({ leftRow: null, rightRow: row, status: "added" });
+    const fp = fingerprint(row, allKeys);
+    rightFpCounts2.set(fp, (rightFpCounts2.get(fp) ?? 0) + 1);
+  }
+  // Consume the same way to mark which right rows were matched
+  for (let i = 0; i < leftRows.length; i++) {
+    if (!leftMatched[i]) continue;
+    const fp = fingerprint(leftRows[i], allKeys);
+    // Find first unmatched right row with this fingerprint
+    for (let j = 0; j < rightRows.length; j++) {
+      if (rightExactMatched[j]) continue;
+      if (fingerprint(rightRows[j], allKeys) === fp) {
+        rightExactMatched[j] = true;
+        break;
       }
     }
+  }
+
+  // Pass 2: For unmatched rows, try first-column matching for "modified" detection
+  const firstKey = leftCols.length > 0 ? leftCols[0].key : null;
+
+  const unmatchedLeft: { idx: number; row: Row }[] = [];
+  for (let i = 0; i < leftRows.length; i++) {
+    if (!leftMatched[i]) unmatchedLeft.push({ idx: i, row: leftRows[i] });
+  }
+
+  const unmatchedRight: { idx: number; row: Row }[] = [];
+  for (let j = 0; j < rightRows.length; j++) {
+    if (!rightExactMatched[j]) unmatchedRight.push({ idx: j, row: rightRows[j] });
+  }
+
+  // Try to pair unmatched rows by first-column value
+  const modifiedPairs: { leftIdx: number; rightIdx: number }[] = [];
+  if (firstKey) {
+    const rightByFirstCol = new Map<string, { idx: number; row: Row }[]>();
+    for (const entry of unmatchedRight) {
+      const k = String(entry.row[firstKey] ?? "");
+      if (!rightByFirstCol.has(k)) rightByFirstCol.set(k, []);
+      rightByFirstCol.get(k)!.push(entry);
+    }
+
+    const pairedRightIndices = new Set<number>();
+    for (const entry of unmatchedLeft) {
+      const k = String(entry.row[firstKey] ?? "");
+      const candidates = rightByFirstCol.get(k);
+      if (candidates && candidates.length > 0) {
+        const match = candidates.shift()!;
+        modifiedPairs.push({ leftIdx: entry.idx, rightIdx: match.idx });
+        pairedRightIndices.add(match.idx);
+      }
+    }
+
+    // Remove paired entries from unmatched lists
+    const pairedLeftIndices = new Set(modifiedPairs.map((p) => p.leftIdx));
+    unmatchedLeft.length = 0;
+    for (let i = 0; i < leftRows.length; i++) {
+      if (!leftMatched[i] && !pairedLeftIndices.has(i)) unmatchedLeft.push({ idx: i, row: leftRows[i] });
+    }
+    unmatchedRight.length = 0;
+    for (let j = 0; j < rightRows.length; j++) {
+      if (!rightExactMatched[j] && !pairedRightIndices.has(j)) unmatchedRight.push({ idx: j, row: rightRows[j] });
+    }
+  }
+
+  // Build result in left-row order, appending added rows at end
+  const result: DiffRow[] = [];
+  const modifiedByLeft = new Map(modifiedPairs.map((p) => [p.leftIdx, p.rightIdx]));
+
+  for (let i = 0; i < leftRows.length; i++) {
+    if (leftMatched[i]) {
+      result.push({ leftRow: leftRows[i], rightRow: leftRows[i], status: "unchanged" });
+    } else if (modifiedByLeft.has(i)) {
+      result.push({ leftRow: leftRows[i], rightRow: rightRows[modifiedByLeft.get(i)!], status: "modified" });
+    } else {
+      result.push({ leftRow: leftRows[i], rightRow: null, status: "removed" });
+    }
+  }
+
+  for (const entry of unmatchedRight) {
+    result.push({ leftRow: null, rightRow: entry.row, status: "added" });
   }
 
   return result;
@@ -289,7 +335,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                             : ""
                         }`}
                       >
-                        {colLabels.get(key)}
+                        <span className={status === "removed" ? "line-through" : ""}>{colLabels.get(key)}</span>
                       </th>
                     );
                   })}
@@ -327,9 +373,10 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                           const rv = formatCell(diff.rightRow[key] ?? null);
                           if (lv !== rv) cellCls = STATUS_BG.changed;
                         }
+                        const isRemoval = diff.status === "removed" || colStatus.get(key) === "removed";
                         return (
                           <td key={key} className={`px-3 py-1.5 text-zinc-700 dark:text-zinc-300 whitespace-nowrap text-xs ${cellCls}`}>
-                            {formatCell(row[key] ?? null)}
+                            <span className={isRemoval ? "line-through" : ""}>{formatCell(row[key] ?? null)}</span>
                           </td>
                         );
                       })}
@@ -357,15 +404,17 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                           status === "added"
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                             : status === "removed"
-                            ? "bg-red-50 text-zinc-400 dark:bg-red-900/10 dark:text-zinc-500"
+                            ? "bg-red-50 text-red-400 dark:bg-red-900/10 dark:text-red-400/60"
                             : status === "changed"
                             ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
                             : ""
                         }`}
                       >
-                        {status === "removed"
-                          ? colLabels.get(key)
-                          : (rightColLabels.get(key) ?? colLabels.get(key))}
+                        <span className={status === "removed" ? "line-through" : ""}>
+                          {status === "removed"
+                            ? colLabels.get(key)
+                            : (rightColLabels.get(key) ?? colLabels.get(key))}
+                        </span>
                       </th>
                     );
                   })}
@@ -378,6 +427,18 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                   }
                   const diff = entry.diff;
                   const row = diff.rightRow;
+                  // Removed row — show left row's content with strikethrough
+                  if (!row && diff.leftRow) {
+                    return (
+                      <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 bg-red-50/30 dark:bg-red-900/10">
+                        {allKeys.map((key) => (
+                          <td key={key} className="px-3 py-1.5 text-red-400 dark:text-red-400/60 whitespace-nowrap text-xs">
+                            <span className="line-through">{formatCell(diff.leftRow![key] ?? null)}</span>
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  }
                   if (!row) {
                     return (
                       <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 bg-red-50/30 dark:bg-red-900/10">
@@ -396,8 +457,11 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                     >
                       {allKeys.map((key) => {
                         let cellCls = "";
+                        const isRemovedCol = colStatus.get(key) === "removed";
                         if (diff.status === "added") {
                           cellCls = STATUS_BG.added;
+                        } else if (isRemovedCol) {
+                          cellCls = "text-red-400 dark:text-red-400/60";
                         } else if (diff.status === "modified" && diff.leftRow) {
                           const lv = formatCell(diff.leftRow[key] ?? null);
                           const rv = formatCell(row[key] ?? null);
@@ -405,7 +469,7 @@ export default function DiffView({ left, right, leftLabel, rightLabel }: Props) 
                         }
                         return (
                           <td key={key} className={`px-3 py-1.5 text-zinc-700 dark:text-zinc-300 whitespace-nowrap text-xs ${cellCls}`}>
-                            {formatCell(row[key] ?? null)}
+                            <span className={isRemovedCol ? "line-through" : ""}>{formatCell(row[key] ?? null)}</span>
                           </td>
                         );
                       })}

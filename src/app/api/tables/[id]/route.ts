@@ -23,14 +23,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     name?: string;
     description?: string | null;
     unpublish?: boolean;
+    editability?: "LOCKED" | "APPROVALS" | "OPEN";
   };
 
-  // Persist to file store
-  await writeTable(id, { columns: body.columns, rows: body.rows, defaultSort: body.defaultSort });
+  let isPendingApproval = false;
 
-  // Persist a version to the database
   try {
-    // Get authenticated user or fall back to system profile
     let profileId: string;
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
 
@@ -43,21 +41,42 @@ export async function PUT(req: NextRequest, { params }: Params) {
       profileId = profile.id;
     }
 
-    // Fetch previous table state + latest version in parallel (before upsert overwrites name/description)
     const meta = getTableMeta(id);
-    const [prevTable, latest] = await Promise.all([
-      prisma.table.findUnique({
-        where: { id },
-        select: { name: true, description: true },
-      }),
+    const tableRecord = await prisma.table.findUnique({
+      where: { id },
+      select: { name: true, description: true, ownerId: true, editability: true, activeBranch: true },
+    });
+
+    const [latest, ban] = await Promise.all([
       prisma.tableVersion.findFirst({
-        where: { tableId: id },
+        where: { tableId: id, branch: tableRecord?.activeBranch ?? "main" },
         orderBy: { version: "desc" },
         select: { version: true, schema: true, data: true },
       }),
+      prisma.tableBan.findUnique({
+        where: { tableId_profileId: { tableId: id, profileId } },
+      }).catch(() => null),
     ]);
 
-    // Ensure the table record exists
+    const isTableOwner = tableRecord?.ownerId === profileId;
+
+    if (ban) {
+      return Response.json({ error: "You are banned from editing this table." }, { status: 403 });
+    }
+
+    if (tableRecord && !isTableOwner) {
+      if (tableRecord.editability === "LOCKED") {
+        return Response.json({ error: "This table is locked. Only the owner can edit." }, { status: 403 });
+      }
+      if (tableRecord.editability === "APPROVALS") {
+        isPendingApproval = true;
+      }
+    }
+
+    if (!isPendingApproval) {
+      await writeTable(id, { columns: body.columns, rows: body.rows, defaultSort: body.defaultSort });
+    }
+
     await prisma.table.upsert({
       where: { id },
       update: {
@@ -66,6 +85,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         ...(body.unpublish && { published: false }),
         ...(body.name !== undefined && { name: body.name }),
         ...(body.description !== undefined && { description: body.description }),
+        ...(body.editability && { editability: body.editability }),
       },
       create: {
         id,
@@ -78,30 +98,31 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const newSchema = JSON.parse(JSON.stringify({ columns: body.columns, defaultSort: body.defaultSort ?? null }));
     const newData = JSON.parse(JSON.stringify({ rows: body.rows }));
 
-    // Only create a new version if content actually changed
     const schemaChanged = JSON.stringify(latest?.schema) !== JSON.stringify(newSchema);
     const dataChanged = JSON.stringify(latest?.data) !== JSON.stringify(newData);
 
-    // Build version message for metadata changes
     const metaChanges: string[] = [];
-    if (body.name !== undefined && prevTable && body.name !== prevTable.name) {
+    if (body.name !== undefined && tableRecord && body.name !== tableRecord.name) {
       metaChanges.push("Name");
     }
-    if (body.description !== undefined && prevTable && body.description !== prevTable.description) {
+    if (body.description !== undefined && tableRecord && body.description !== tableRecord.description) {
       metaChanges.push("Description");
     }
     const message = metaChanges.length > 0 ? `${metaChanges.join("/")} updated` : null;
 
     if (schemaChanged || dataChanged || metaChanges.length > 0 || !latest) {
       const nextVersion = (latest?.version ?? 0) + 1;
+      const branch = tableRecord?.activeBranch ?? "main";
       await prisma.tableVersion.create({
         data: {
           tableId: id,
           version: nextVersion,
+          branch,
           schema: newSchema,
           data: newData,
           authorId: profileId,
           ...(message && { message }),
+          ...(isPendingApproval && { status: "PENDING_APPROVAL" }),
         },
       });
     }
@@ -114,5 +135,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     published: body.unpublish ? false : body.publish ? true : undefined,
     name: body.name,
     description: body.description,
+    pendingApproval: isPendingApproval || undefined,
   });
 }

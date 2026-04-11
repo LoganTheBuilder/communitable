@@ -1,6 +1,6 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySit",
+  "name": "tablebees",
+  "short_name": "tablebees",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
