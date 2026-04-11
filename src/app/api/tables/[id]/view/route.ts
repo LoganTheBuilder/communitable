@@ -17,13 +17,11 @@ export async function POST(_req: NextRequest, { params }: Params) {
     if (!table) return Response.json({ ok: true });
 
     const isOwner = session?.user?.id === table.owner.userId;
-    await prisma.table.update({
-      where: { id },
-      data: {
-        viewCount: { increment: 1 },
-        ...(isOwner ? { ownerLastViewedAt: new Date() } : {}),
-      },
-    });
+    if (isOwner) {
+      await prisma.$executeRaw`UPDATE "tables" SET "viewCount" = "viewCount" + 1, "ownerLastViewedAt" = NOW() WHERE "id" = ${id}`;
+    } else {
+      await prisma.$executeRaw`UPDATE "tables" SET "viewCount" = "viewCount" + 1 WHERE "id" = ${id}`;
+    }
   } catch {
     // Table may not exist in DB (e.g. sample tables) — silently ignore
   }

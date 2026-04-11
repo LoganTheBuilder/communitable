@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SAMPLE_TABLES } from "@/lib/sample-data";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth/session";
 import TableSearch from "@/components/TableSearch";
 import AuthNav from "@/components/AuthNav";
 import NewTableButton from "@/components/NewTableButton";
@@ -85,6 +86,8 @@ export default async function Home() {
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
 
+  const session = await getSession();
+
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
       {/* Nav */}
@@ -93,18 +96,20 @@ export default async function Home() {
         <AuthNav />
       </header>
 
-      {/* Hero */}
-      <section className="px-8 pt-16 pb-10 max-w-4xl">
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">
-          The collaborative table database
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-lg">
-          Browse, fork, and collaborate on structured data — no account required to explore.
-        </p>
-      </section>
+      {/* Hero — only shown to logged-out visitors */}
+      {!session && (
+        <section className="px-8 pt-16 pb-10 max-w-4xl">
+          <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">
+            The collaborative table database
+          </h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-lg">
+            Browse, fork, and collaborate on structured data — no account required to explore.
+          </p>
+        </section>
+      )}
 
       {/* Search + Table directory */}
-      <main className="px-8 pb-20">
+      <main className={`px-8 pb-20 ${session ? "pt-8" : ""}`}>
         <TableSearch tables={allTables} actions={<NewTableButton />} />
       </main>
     </div>
