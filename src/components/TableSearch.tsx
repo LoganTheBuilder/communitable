@@ -286,13 +286,13 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
                     <Badge color="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400">Draft</Badge>
                   )}
                   {(table.viewCount ?? 0) >= HOT_THRESHOLD && (
-                    <Badge color="bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400">Hot</Badge>
+                    <Badge color="bg-red-400 text-slate-100 dark:bg-rose-600 dark:text-slate-100">Hot</Badge>
                   )}
                   {(table.collaboratorCount ?? 0) >= BUSY_THRESHOLD && (
-                    <Badge color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Busy</Badge>
+                    <Badge color="bg-yellow-500 text-red-900">Busy</Badge>
                   )}
                   {Date.now() - new Date(table.createdAt).getTime() < NEW_THRESHOLD_MS && (
-                    <Badge color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">New</Badge>
+                    <Badge color="bg-emerald-100 text-emerald-700 dark:bg-emerald-200 dark:text-emerald-900">New</Badge>
                   )}
                   {table.notification === "new-collaborator" && (
                     <Badge color="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">New collaborator(s)</Badge>

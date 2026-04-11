@@ -80,8 +80,15 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 font-[family-name:var(--font-geist-sans)]">
       {/* Nav */}
+      
       <header className="flex items-center justify-between px-8 py-4 border-b border-zinc-100 dark:border-zinc-800">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">tablebees</Link>
+        {/* <svg className="fill-yellow-500 drop-shadow-xl drop-shadow-zinc-300 dark:drop-shadow-zinc-200/50 size-25">
+          <polygon points="50,10 87,32 87,68 50,90 13,68 13,32" />           
+        </svg> */}
+        <Link href="/" className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
+          <span className="bg-gradient-to-bl from-yellow-600 to-yellow-500 bg-clip-text text-transparent">table</span>
+          <span>bees</span>
+        </Link>
         <AuthNav />
       </header>
 
@@ -89,10 +96,10 @@ export default async function Home() {
       {!session && (
         <section className="px-8 pt-16 pb-10 max-w-4xl">
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">
-            The collaborative table database
+            The collaborative table builder
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-lg">
-            Browse, fork, and collaborate on structured data — no account required to explore.
+            Browse, fork, and contribute to structured data — no account required to explore.
           </p>
         </section>
       )}
