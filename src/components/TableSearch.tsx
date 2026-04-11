@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { DirectoryEntry } from "@/lib/types";
 
 const HOT_THRESHOLD = 25;
-const CROWDED_THRESHOLD = 3;
+const BUSY_THRESHOLD = 3;
 const NEW_THRESHOLD_MS = 86_400_000; // 24 hours
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
   hideRandom?: boolean;
 }
 
-type SortMode = "default" | "popular" | "crowded" | "updated";
+type SortMode = "default" | "popular" | "busy" | "updated";
 type DatePreset = "any" | "today" | "week" | "month" | "year" | "custom";
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
@@ -31,7 +31,7 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
 
 const SORT_CHIPS: { value: SortMode; label: string; title: string }[] = [
   { value: "popular", label: "Popular",  title: "Sort by most views" },
-  { value: "crowded", label: "Crowded",  title: "Sort by most collaborators" },
+  { value: "busy", label: "Busy",  title: "Sort by most collaborators" },
   { value: "updated", label: "Updated",  title: "Sort by most recently updated" },
 ];
 
@@ -175,7 +175,7 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
 
   const displayItems = useMemo(() => {
     if (sortMode === "popular") return [...filtered].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
-    if (sortMode === "crowded") return [...filtered].sort((a, b) => (b.collaboratorCount ?? 0) - (a.collaboratorCount ?? 0));
+    if (sortMode === "busy") return [...filtered].sort((a, b) => (b.collaboratorCount ?? 0) - (a.collaboratorCount ?? 0));
     if (sortMode === "updated") return [...filtered].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return filtered;
   }, [filtered, sortMode]);
@@ -288,8 +288,8 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
                   {(table.viewCount ?? 0) >= HOT_THRESHOLD && (
                     <Badge color="bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400">Hot</Badge>
                   )}
-                  {(table.collaboratorCount ?? 0) >= CROWDED_THRESHOLD && (
-                    <Badge color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Crowded</Badge>
+                  {(table.collaboratorCount ?? 0) >= BUSY_THRESHOLD && (
+                    <Badge color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Busy</Badge>
                   )}
                   {Date.now() - new Date(table.createdAt).getTime() < NEW_THRESHOLD_MS && (
                     <Badge color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">New</Badge>

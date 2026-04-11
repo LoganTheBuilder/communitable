@@ -7,7 +7,11 @@
   --foreground: #171717;
 }
 
-@theme inline {
+@theme initial {
+  /* --color-*: initial; */
+  /* --color-primary: var(yellow-500);
+  --color-secondary: var(green-800);
+  --color-coral: oklch(245 73 39); */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);

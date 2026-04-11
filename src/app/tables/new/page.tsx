@@ -152,7 +152,11 @@ export default function NewTablePage() {
           <button
             type="submit"
             disabled={creating}
-            className="w-full py-2.5 bg-gradient-to-bl from-[#f6339a] to-fuchsia-500 text-white text-sm font-medium rounded-lg hover:from-pink-700 hover:to-fuchsia-600 dark:bg-gradient-to-bl dark:from-[#f6339a] dark:to-fuchsia-500 dark:text-white dark:hover:from-pink-700 dark:hover:to-fuchsia-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-2.5 bg-gradient-to-bl from-yellow-500 to-red-400 text-white text-sm font-medium rounded-lg 
+            hover:from-yellow-600 hover:to-red-600 
+            dark:bg-gradient-to-bl dark:from-yellow-500 to-red-400 dark:text-white
+            dark:hover:from-yellow-600 dark:hover:to-red-600 
+            disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {/* TODO spinner anim */}
             {creating ? "Creating…" : "Create Table"}

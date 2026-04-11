@@ -151,51 +151,50 @@ export default async function TablePage({ params }: Props) {
 
   const stored = await readTable(id);
 
-  let pendingRows: Row[] | null = null;
-  let pendingColumns: ColumnDef[] | null = null;
+  let pendingVersions: { rows: Row[]; columns: ColumnDef[] | null }[] = [];
   let isBanned = false;
   if (session?.user && !isOwner) {
     try {
       const profile = await getProfileByUserId(session.user.id);
       if (profile) {
-        const [ban, pendingVersion] = await Promise.all([
+        const [ban, pendingVersionsList] = await Promise.all([
           prisma.tableBan.findUnique({
             where: { tableId_profileId: { tableId: id, profileId: profile.id } },
           }).catch(() => null),
           tableMeta.editability === "APPROVALS"
-            ? prisma.tableVersion.findFirst({
+            ? prisma.tableVersion.findMany({
                 where: { tableId: id, status: "PENDING_APPROVAL", authorId: profile.id },
                 orderBy: { createdAt: "desc" },
                 select: { schema: true, data: true },
               })
-            : null,
+            : [],
         ]);
         isBanned = !!ban;
-        if (pendingVersion?.data) {
-          pendingRows = (pendingVersion.data as { rows: Row[] }).rows;
-        }
-        if (pendingVersion?.schema) {
-          pendingColumns = (pendingVersion.schema as unknown as { columns: ColumnDef[] }).columns;
-        }
+        pendingVersions = pendingVersionsList
+          .filter((v) => v.data)
+          .map((v) => ({
+            rows: (v.data as { rows: Row[] }).rows,
+            columns: v.schema ? (v.schema as unknown as { columns: ColumnDef[] }).columns : null,
+          }));
       }
     } catch {
       // ignore
     }
   }
   // Owner sees any pending version
-  if (isOwner && tableMeta.editability === "APPROVALS" && !pendingRows) {
+  if (isOwner && tableMeta.editability === "APPROVALS" && pendingVersions.length === 0) {
     try {
-      const pendingVersion = await prisma.tableVersion.findFirst({
+      const pendingVersionsList = await prisma.tableVersion.findMany({
         where: { tableId: id, status: "PENDING_APPROVAL" },
         orderBy: { createdAt: "desc" },
         select: { schema: true, data: true },
       });
-      if (pendingVersion?.data) {
-        pendingRows = (pendingVersion.data as { rows: Row[] }).rows;
-      }
-      if (pendingVersion?.schema) {
-        pendingColumns = (pendingVersion.schema as unknown as { columns: ColumnDef[] }).columns;
-      }
+      pendingVersions = pendingVersionsList
+        .filter((v) => v.data)
+        .map((v) => ({
+          rows: (v.data as { rows: Row[] }).rows,
+          columns: v.schema ? (v.schema as unknown as { columns: ColumnDef[] }).columns : null,
+        }));
     } catch {
       // ignore
     }
@@ -267,8 +266,7 @@ export default async function TablePage({ params }: Props) {
           isOwner={isOwner}
           collaborators={tableMeta.collaborators ?? []}
           initialEditability={tableMeta.editability}
-          pendingRows={pendingRows}
-          pendingColumns={pendingColumns}
+          pendingVersions={pendingVersions.length > 0 ? pendingVersions : undefined}
           isBanned={isBanned}
         />
       </main>

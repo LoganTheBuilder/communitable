@@ -29,16 +29,20 @@ function compareValues(a: CellValue, b: CellValue, type: ColumnDef["type"]): num
   return String(a).localeCompare(String(b));
 }
 
+interface PendingVersion {
+  rows: Row[];
+  columns: ColumnDef[] | null;
+}
+
 interface Props {
   columns: ColumnDef[];
   rows: Row[];
   initialSort?: SortState;
   toolbarExtra?: ReactNode;
-  pendingRows?: Row[];
-  pendingColumns?: ColumnDef[];
+  pendingVersions?: PendingVersion[];
 }
 
-export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pendingRows, pendingColumns }: Props) {
+export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pendingVersions }: Props) {
   const [sort, setSort] = useState<SortState | null>(initialSort ?? null);
   const [query, setQuery] = useState("");
   const [filterCol, setFilterCol] = useState<string>("__all__");
@@ -46,90 +50,120 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pe
   const [pageSize, setPageSize] = useState(25);
   const { getWidth, onMouseDown } = useColumnResize(150);
 
-  // Pending change detection: split into modified vs removed
-  const { pendingModifiedSet, pendingRemovedSet, pendingRemovedCols } = useMemo(() => {
-    if (!pendingRows) return { pendingModifiedSet: null, pendingRemovedSet: null, pendingRemovedCols: new Set<string>() };
+  // Pending change detection across all versions
+  const { pendingModifiedMap, pendingRemovedSet, pendingAddedRows, pendingRemovedCols, versionCount } = useMemo(() => {
+    if (!pendingVersions || pendingVersions.length === 0) {
+      return { pendingModifiedMap: null, pendingRemovedSet: null, pendingAddedRows: [] as Row[], pendingRemovedCols: new Set<string>(), versionCount: 0 };
+    }
 
     const keys = columns.map((c) => c.key);
     const fingerprint = (row: Row) => keys.map((k) => String(row[k] ?? "")).join("\x00");
-
-    // Build fingerprint counts for the pending version
-    const pendingCounts = new Map<string, number>();
-    for (const row of pendingRows) {
-      const fp = fingerprint(row);
-      pendingCounts.set(fp, (pendingCounts.get(fp) ?? 0) + 1);
-    }
-
-    // Identify published rows that don't have an exact match in pending
-    const unmatched: Row[] = [];
-    for (const row of rows) {
-      const fp = fingerprint(row);
-      const count = pendingCounts.get(fp) ?? 0;
-      if (count > 0) {
-        pendingCounts.set(fp, count - 1);
-      } else {
-        unmatched.push(row);
-      }
-    }
-
-    // Among unmatched: try first-column matching to distinguish modified vs removed
-    const modified = new Set<Row>();
-    const removed = new Set<Row>();
     const firstKey = columns.length > 0 ? columns[0].key : null;
 
-    if (firstKey) {
-      // Build first-col counts from pending rows
-      const pendingFirstCounts = new Map<string, number>();
+    // Aggregate: published row -> pending row proposals
+    const modifiedMap = new Map<Row, Row[]>();
+    const removedSet = new Set<Row>();
+    const allAddedRows: Row[] = [];
+    const allRemovedCols = new Set<string>();
+
+    for (const version of pendingVersions) {
+      const pendingRows = version.rows;
+
+      // Build fingerprint counts for this pending version
+      const pendingCounts = new Map<string, number>();
       for (const row of pendingRows) {
-        const k = String(row[firstKey] ?? "");
-        pendingFirstCounts.set(k, (pendingFirstCounts.get(k) ?? 0) + 1);
+        const fp = fingerprint(row);
+        pendingCounts.set(fp, (pendingCounts.get(fp) ?? 0) + 1);
       }
-      // Consume exact-matched rows' first-col values
-      const exactCounts = new Map<string, number>();
+
+      // Identify published rows not exactly matched in this pending version
+      const unmatchedPublished: Row[] = [];
+      const matchedPublishedSet = new Set<Row>();
       for (const row of rows) {
-        if (!unmatched.includes(row)) {
-          const k = String(row[firstKey] ?? "");
-          exactCounts.set(k, (exactCounts.get(k) ?? 0) + 1);
-        }
-      }
-      // Remaining first-col budget = pending first-col counts minus exact matches
-      const remainingFirstCounts = new Map<string, number>();
-      for (const [k, v] of pendingFirstCounts) {
-        const used = exactCounts.get(k) ?? 0;
-        if (v - used > 0) remainingFirstCounts.set(k, v - used);
-      }
-
-      for (const row of unmatched) {
-        const k = String(row[firstKey] ?? "");
-        const budget = remainingFirstCounts.get(k) ?? 0;
-        if (budget > 0) {
-          modified.add(row);
-          remainingFirstCounts.set(k, budget - 1);
+        const fp = fingerprint(row);
+        const count = pendingCounts.get(fp) ?? 0;
+        if (count > 0) {
+          pendingCounts.set(fp, count - 1);
+          matchedPublishedSet.add(row);
         } else {
-          removed.add(row);
+          unmatchedPublished.push(row);
         }
       }
-    } else {
-      for (const row of unmatched) removed.add(row);
-    }
 
-    // Columns removed in pending version
-    const removedCols = new Set<string>();
-    if (pendingColumns) {
-      const pendingColKeys = new Set(pendingColumns.map((c) => c.key));
-      for (const col of columns) {
-        if (!pendingColKeys.has(col.key)) removedCols.add(col.key);
+      // Collect unmatched pending rows (rows in pending not matched to any published row)
+      const publishedCounts = new Map<string, number>();
+      for (const row of rows) {
+        const fp = fingerprint(row);
+        publishedCounts.set(fp, (publishedCounts.get(fp) ?? 0) + 1);
+      }
+      const unmatchedPending: Row[] = [];
+      for (const row of pendingRows) {
+        const fp = fingerprint(row);
+        const count = publishedCounts.get(fp) ?? 0;
+        if (count > 0) {
+          publishedCounts.set(fp, count - 1);
+        } else {
+          unmatchedPending.push(row);
+        }
+      }
+
+      // Pair unmatched published rows with unmatched pending rows by first-column match
+      if (firstKey) {
+        // Group unmatched pending rows by first-col value
+        const pendingByFirst = new Map<string, Row[]>();
+        for (const row of unmatchedPending) {
+          const k = String(row[firstKey] ?? "");
+          const arr = pendingByFirst.get(k) ?? [];
+          arr.push(row);
+          pendingByFirst.set(k, arr);
+        }
+        const pairedPending = new Set<Row>();
+
+        for (const pubRow of unmatchedPublished) {
+          const k = String(pubRow[firstKey] ?? "");
+          const candidates = pendingByFirst.get(k);
+          if (candidates && candidates.length > 0) {
+            const pendingRow = candidates.shift()!;
+            pairedPending.add(pendingRow);
+            // Add to modified map
+            const existing = modifiedMap.get(pubRow) ?? [];
+            existing.push(pendingRow);
+            modifiedMap.set(pubRow, existing);
+          } else {
+            removedSet.add(pubRow);
+          }
+        }
+
+        // Remaining unmatched pending rows are additions
+        for (const row of unmatchedPending) {
+          if (!pairedPending.has(row)) {
+            allAddedRows.push(row);
+          }
+        }
+      } else {
+        for (const row of unmatchedPublished) removedSet.add(row);
+        allAddedRows.push(...unmatchedPending);
+      }
+
+      // Columns removed in this pending version
+      if (version.columns) {
+        const pendingColKeys = new Set(version.columns.map((c) => c.key));
+        for (const col of columns) {
+          if (!pendingColKeys.has(col.key)) allRemovedCols.add(col.key);
+        }
       }
     }
 
     return {
-      pendingModifiedSet: modified.size > 0 ? modified : null,
-      pendingRemovedSet: removed.size > 0 ? removed : null,
-      pendingRemovedCols: removedCols,
+      pendingModifiedMap: modifiedMap.size > 0 ? modifiedMap : null,
+      pendingRemovedSet: removedSet.size > 0 ? removedSet : null,
+      pendingAddedRows: allAddedRows,
+      pendingRemovedCols: allRemovedCols,
+      versionCount: pendingVersions.length,
     };
-  }, [rows, pendingRows, columns, pendingColumns]);
+  }, [rows, pendingVersions, columns]);
 
-  const hasPendingChanges = !!(pendingModifiedSet || pendingRemovedSet || pendingRemovedCols.size > 0);
+  const hasPendingChanges = !!(pendingModifiedMap || pendingRemovedSet || pendingAddedRows.length > 0 || pendingRemovedCols.size > 0);
 
   function handleHeaderClick(key: string) {
     setSort((prev) => {
@@ -219,9 +253,10 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pe
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>
-            Pending edit awaiting approval
-            {pendingModifiedSet && <>{" "}&middot; {pendingModifiedSet.size} row{pendingModifiedSet.size !== 1 ? "s" : ""} modified</>}
+            {versionCount} pending edit{versionCount !== 1 ? "s" : ""} awaiting approval
+            {pendingModifiedMap && <>{" "}&middot; {pendingModifiedMap.size} row{pendingModifiedMap.size !== 1 ? "s" : ""} modified</>}
             {pendingRemovedSet && <>{" "}&middot; {pendingRemovedSet.size} row{pendingRemovedSet.size !== 1 ? "s" : ""} removed</>}
+            {pendingAddedRows.length > 0 && <>{" "}&middot; {pendingAddedRows.length} row{pendingAddedRows.length !== 1 ? "s" : ""} added</>}
             {pendingRemovedCols.size > 0 && <>{" "}&middot; {pendingRemovedCols.size} column{pendingRemovedCols.size !== 1 ? "s" : ""} removed</>}
           </span>
         </div>
@@ -272,55 +307,116 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pe
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {sorted.length === 0 && pendingAddedRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
                   No rows match &ldquo;{query}&rdquo;
                 </td>
               </tr>
             ) : (
-              pageRows.map((row, i) => {
-                const isModified = pendingModifiedSet?.has(row) ?? false;
-                const isRemoved = pendingRemovedSet?.has(row) ?? false;
-                const isPending = isModified || isRemoved;
-                return (
-                  <tr
-                    key={i}
-                    className={[
-                      "border-b border-zinc-100 dark:border-zinc-800 last:border-0 transition-colors",
-                      isPending
-                        ? "bg-amber-50 dark:bg-amber-900/15"
-                        : "hover:bg-zinc-50 dark:hover:bg-zinc-800",
-                    ].join(" ")}
-                  >
-                    {columns.map((col, ci) => {
-                      const isColRemoved = pendingRemovedCols.has(col.key);
-                      const useStrike = isRemoved || isColRemoved;
-                      return (
-                        <td
-                          key={col.key}
-                          className={[
-                            "px-4 py-2 truncate",
-                            isPending || isColRemoved
-                              ? "text-amber-800 dark:text-amber-300"
-                              : "text-zinc-700 dark:text-zinc-300",
-                            col.type === "number" ? "tabular-nums text-right" : "",
-                          ].join(" ")}
+              <>
+                {pageRows.map((row, i) => {
+                  const pendingEdits = pendingModifiedMap?.get(row);
+                  const isModified = !!pendingEdits;
+                  const isRemoved = pendingRemovedSet?.has(row) ?? false;
+                  const isPending = isModified || isRemoved;
+                  return (
+                    <PendingRowGroup key={i}>
+                      {/* Published row */}
+                      <tr
+                        className={[
+                          "border-b border-zinc-100 dark:border-zinc-800 last:border-0 transition-colors",
+                          isPending
+                            ? "bg-amber-50 dark:bg-amber-900/15"
+                            : "hover:bg-zinc-50 dark:hover:bg-zinc-800",
+                        ].join(" ")}
+                      >
+                        {columns.map((col, ci) => {
+                          const isColRemoved = pendingRemovedCols.has(col.key);
+                          const useStrike = isRemoved || isColRemoved;
+                          return (
+                            <td
+                              key={col.key}
+                              className={[
+                                "px-4 py-2 truncate",
+                                isPending || isColRemoved
+                                  ? "text-amber-800 dark:text-amber-300"
+                                  : "text-zinc-700 dark:text-zinc-300",
+                                col.type === "number" ? "tabular-nums text-right" : "",
+                              ].join(" ")}
+                            >
+                              <span className={useStrike ? "line-through" : ""}>
+                                {formatCell(row[col.key] ?? null, col.type)}
+                              </span>
+                              {isPending && ci === 0 && (
+                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
+                                  {isRemoved ? "pending removal" : "pending edit"}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {/* Sub-rows showing actual pending edit values */}
+                      {pendingEdits?.map((pendingRow, ei) => (
+                        <tr
+                          key={`edit-${ei}`}
+                          className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 bg-emerald-50 dark:bg-emerald-900/15"
                         >
-                          <span className={useStrike ? "line-through" : ""}>
-                            {formatCell(row[col.key] ?? null, col.type)}
+                          {columns.map((col, ci) => {
+                            const oldVal = formatCell(row[col.key] ?? null, col.type);
+                            const newVal = formatCell(pendingRow[col.key] ?? null, col.type);
+                            const changed = oldVal !== newVal;
+                            return (
+                              <td
+                                key={col.key}
+                                className={[
+                                  "px-4 py-2 truncate",
+                                  changed
+                                    ? "text-emerald-800 dark:text-emerald-300 font-medium"
+                                    : "text-zinc-400 dark:text-zinc-600",
+                                  col.type === "number" ? "tabular-nums text-right" : "",
+                                ].join(" ")}
+                              >
+                                {newVal}
+                                {ci === 0 && (
+                                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+                                    proposed
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </PendingRowGroup>
+                  );
+                })}
+                {/* Added rows from pending versions (shown on last page) */}
+                {clampedPage === totalPages - 1 && pendingAddedRows.map((row, i) => (
+                  <tr
+                    key={`added-${i}`}
+                    className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 bg-emerald-50 dark:bg-emerald-900/15"
+                  >
+                    {columns.map((col, ci) => (
+                      <td
+                        key={col.key}
+                        className={[
+                          "px-4 py-2 truncate text-emerald-800 dark:text-emerald-300",
+                          col.type === "number" ? "tabular-nums text-right" : "",
+                        ].join(" ")}
+                      >
+                        {formatCell(row[col.key] ?? null, col.type)}
+                        {ci === 0 && (
+                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+                            pending addition
                           </span>
-                          {isPending && ci === 0 && (
-                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
-                              {isRemoved ? "pending removal" : "pending"}
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
+                        )}
+                      </td>
+                    ))}
                   </tr>
-                );
-              })
+                ))}
+              </>
             )}
           </tbody>
         </table>
@@ -356,6 +452,10 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pe
       </div>
     </div>
   );
+}
+
+function PendingRowGroup({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 function NavButton({

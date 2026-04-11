@@ -22,7 +22,7 @@ export default function NewTableButton() {
       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gradient-to-bl from-yellow-500 to-yellow-700 text-white rounded-md 
       hover:from-pink-800 to-yellow-600
       dark:bg-gradient-to-bl dark:from-yellow-600 dark:to-yellow-700 dark:text-white 
-      dark:hover:from-pink-800 dark:hover:to-yellow-600 
+      dark:hover:from-pink-500 dark:hover:to-yellow-500 
       transition-colors font-medium disabled:opacity-50"
     >
       + New Table

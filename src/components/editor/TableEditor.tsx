@@ -82,8 +82,7 @@ interface Props {
   isOwner?: boolean;
   collaborators?: string[];
   initialEditability?: Editability;
-  pendingRows?: Row[] | null;
-  pendingColumns?: ColumnDef[] | null;
+  pendingVersions?: { rows: Row[]; columns: ColumnDef[] | null }[];
   isBanned?: boolean;
 }
 
@@ -98,8 +97,7 @@ export default function TableEditor({
   isOwner = false,
   collaborators = [],
   initialEditability = "OPEN",
-  pendingRows = null,
-  pendingColumns = null,
+  pendingVersions,
   isBanned = false,
 }: Props) {
   const { data: session } = useSession();
@@ -111,8 +109,7 @@ export default function TableEditor({
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
-  const [localPendingRows, setLocalPendingRows] = useState<Row[] | null>(pendingRows);
-  const [localPendingColumns, setLocalPendingColumns] = useState<ColumnDef[] | null>(pendingColumns);
+  const [localPendingVersions, setLocalPendingVersions] = useState(pendingVersions);
   const [history, dispatch] = useReducer(historyReducer, {
     past: [],
     present: { columns: initialColumns, rows: initialRows, defaultSort: initialDefaultSort },
@@ -265,8 +262,10 @@ export default function TableEditor({
 
       if (data.pendingApproval) {
         // Save went to pending approval — revert view to published data and show pending highlights
-        setLocalPendingRows(present.rows);
-        setLocalPendingColumns(present.columns);
+        setLocalPendingVersions((prev) => [
+          { rows: present.rows, columns: present.columns },
+          ...(prev ?? []),
+        ]);
         dispatch({ type: "RESET", content: savedContent });
       } else {
         setSavedContent(present);
@@ -363,8 +362,7 @@ export default function TableEditor({
           columns={present.columns}
           rows={present.rows}
           initialSort={present.defaultSort ?? undefined}
-          pendingRows={localPendingRows ?? undefined}
-          pendingColumns={localPendingColumns ?? undefined}
+          pendingVersions={localPendingVersions}
           toolbarExtra={
             (() => {
               const editDisabled = isBanned || (editability === "LOCKED" && !isOwner);
