@@ -86,8 +86,8 @@ export default async function Home() {
           <polygon points="50,10 87,32 87,68 50,90 13,68 13,32" />           
         </svg> */}
         <Link href="/" className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
-          <span className="bg-gradient-to-bl from-yellow-600 to-yellow-500 bg-clip-text text-transparent">table</span>
-          <span>bees</span>
+          <span className="bg-gradient-to-bl from-blue-600 to-cyan-500 bg-clip-text text-transparent">communi</span>
+          <span>table</span>
         </Link>
         <AuthNav />
       </header>
@@ -96,10 +96,10 @@ export default async function Home() {
       {!session && (
         <section className="px-8 pt-16 pb-10 max-w-4xl">
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">
-            The collaborative table builder
+            The open-source table editor
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-lg">
-            Browse, fork, and contribute to structured data — no account required to explore.
+            Browse, fork, and contribute to structured data.
           </p>
         </section>
       )}

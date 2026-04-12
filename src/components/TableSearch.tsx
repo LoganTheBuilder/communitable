@@ -208,10 +208,10 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
             title={chip.title}
             onClick={() => setSortMode((prev) => prev === chip.value ? "default" : chip.value)}
             className={[
-              "px-3 py-1.5 text-sm rounded-full border  hover:border-button-primary transition-colors font-medium",
+              "px-3 py-1.5 text-sm rounded transition-colors font-medium",
               sortMode === chip.value
-              ? "inset-shadow-sm/15 border-white"
-              : "shadow-lg dark:shadow-zinc-50/15 border-zinc-100",
+              ? "bg-orange-400"
+              : "bg-cyan-400 hover-cyan-200 text-white",
             ].join(" ")}
           >
             {chip.label}
@@ -222,7 +222,7 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
             title="Go to a random table"
             onClick={handleRandom}
             disabled={filtered.length === 0}
-            className="px-3 py-1.5 text-sm rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+            className="px-3 py-1.5 text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
           >
             Random
           </button>
@@ -243,7 +243,7 @@ export default function TableSearch({ tables, actions, hideRandom }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search tables..."
-          className="w-full pl-10 pr-3 py-2.5 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 focus:border-transparent inset-shadow-sm/10 dark:inset-shadow-zinc-50/30"
+          className="w-full pl-10 pr-3 py-2.5 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-400 focus:border-transparent"
         />
         {(query || hasActiveFilters) && (
           <button

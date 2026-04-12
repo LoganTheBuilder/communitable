@@ -21,9 +21,9 @@ export default function NewTableButton() {
       disabled={isPending}
       className="inline-flex items-center gap-1.5 font-bold text-sm text-white 
       px-2 py-1.75 
-      bg-gradient-to-bl from-button-primary to-button-secondary  shadow-lg dark:shadow-zinc-50/15
-      hover:from-button-accent hover:to-button-primary 
-      rounded-full transition-colors disabled:opacity-50"
+      bg-gradient-to-bl from-blue-500 to-cyan-400 
+      hover:from-cyan-300 hover:to-green-400 
+      rounded transition-colors disabled:opacity-50"
     >
       + New Table
     </button>
