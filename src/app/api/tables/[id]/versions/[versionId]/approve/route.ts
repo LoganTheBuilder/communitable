@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const version = await prisma.tableVersion.findUnique({
     where: { id: versionId },
-    select: { id: true, status: true, schema: true, data: true, tableId: true },
+    select: { id: true, status: true, schema: true, data: true, tableId: true, branch: true },
   });
   if (!version || version.tableId !== id) {
     return Response.json({ error: "Version not found" }, { status: 404 });
@@ -39,10 +39,25 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const newStatus = action === "approve" ? "PUBLISHED" : "REJECTED";
-  await prisma.tableVersion.update({
-    where: { id: versionId },
-    data: { status: newStatus },
-  });
+
+  if (action === "approve") {
+    // Renumber from the temp pending range into the next contiguous published version
+    const latestPublished = await prisma.tableVersion.findFirst({
+      where: { tableId: id, branch: version.branch, status: "PUBLISHED" },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    const newVersion = (latestPublished?.version ?? 0) + 1;
+    await prisma.tableVersion.update({
+      where: { id: versionId },
+      data: { status: newStatus, version: newVersion },
+    });
+  } else {
+    await prisma.tableVersion.update({
+      where: { id: versionId },
+      data: { status: newStatus },
+    });
+  }
 
   // If approved, write the content to file store so it becomes the live version
   if (action === "approve") {

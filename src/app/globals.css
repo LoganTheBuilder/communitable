@@ -7,13 +7,18 @@
   --foreground: #171717;
 }
 
-@theme initial {
-  /* --color-*: initial; */
-  /* --color-primary: var(yellow-500);
-  --color-secondary: var(green-800);
-  --color-coral: oklch(245 73 39); */
+@theme {
+  /* Button colors */
+  --color-button-primary: oklch(0.80 0.26 80.19);
+  --color-button-secondary: oklch(0.60 0.28 86.56);
+  --color-button-accent: oklch(0.80 0.34 354.1);
+  --color-button-shadow: oklch(0.50 0.40 90.00);
+  
+  /* Page colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  
+  /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

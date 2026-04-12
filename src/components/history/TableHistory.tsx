@@ -74,37 +74,74 @@ function VersionPreview({ version, baseVersion }: { version: VersionEntry; baseV
   const removedCols = isPending ? baseCols.filter((c) => !pendingKeys.has(c.key)) : [];
   const allCols = [...cols, ...removedCols];
 
-  // Rows present in base but removed in pending (full-row fingerprint)
+  // Pair pending vs base rows: exact match → unchanged; first-column key match → modified;
+  // otherwise → added (in pending) or removed (in base). Mirrors TableGrid's logic.
   let removedRows: Row[] = [];
+  const modifiedByPendingRow = new Map<Row, Row>(); // pendingRow -> baseRow
   if (isPending) {
     const keys = allCols.map((c) => c.key);
     const fp = (row: Row) => keys.map((k) => String(row[k] ?? "")).join("\x00");
+    const firstKey = allCols.length > 0 ? allCols[0].key : null;
+
     const pendingCounts = new Map<string, number>();
     for (const row of rows) {
       const f = fp(row);
       pendingCounts.set(f, (pendingCounts.get(f) ?? 0) + 1);
     }
+    const unmatchedBase: Row[] = [];
     for (const row of baseRows) {
       const f = fp(row);
       const count = pendingCounts.get(f) ?? 0;
-      if (count > 0) {
-        pendingCounts.set(f, count - 1);
-      } else {
-        removedRows.push(row);
+      if (count > 0) pendingCounts.set(f, count - 1);
+      else unmatchedBase.push(row);
+    }
+
+    const baseCounts = new Map<string, number>();
+    for (const row of baseRows) {
+      const f = fp(row);
+      baseCounts.set(f, (baseCounts.get(f) ?? 0) + 1);
+    }
+    const unmatchedPending: Row[] = [];
+    for (const row of rows) {
+      const f = fp(row);
+      const count = baseCounts.get(f) ?? 0;
+      if (count > 0) baseCounts.set(f, count - 1);
+      else unmatchedPending.push(row);
+    }
+
+    if (firstKey) {
+      const pendingByFirst = new Map<string, Row[]>();
+      for (const row of unmatchedPending) {
+        const k = String(row[firstKey] ?? "");
+        const arr = pendingByFirst.get(k) ?? [];
+        arr.push(row);
+        pendingByFirst.set(k, arr);
       }
+      for (const baseRow of unmatchedBase) {
+        const k = String(baseRow[firstKey] ?? "");
+        const candidates = pendingByFirst.get(k);
+        if (candidates && candidates.length > 0) {
+          const pendingRow = candidates.shift()!;
+          modifiedByPendingRow.set(pendingRow, baseRow);
+        } else {
+          removedRows.push(baseRow);
+        }
+      }
+    } else {
+      removedRows = unmatchedBase;
     }
   }
 
   const displayRows = rows.slice(0, maxRows);
-  const totalVisible = displayRows.length + removedRows.length;
   const truncated = rows.length > maxRows;
   const removedColKeys = new Set(removedCols.map((c) => c.key));
+  const modifiedCount = modifiedByPendingRow.size;
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-3">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-          v{version.version}
+          {version.status === "PUBLISHED" ? `v${version.version}` : "Pending change"}
           {version.branch !== "main" && (
             <span className="ml-2 text-sm font-normal text-zinc-500">({version.branch})</span>
           )}
@@ -120,8 +157,10 @@ function VersionPreview({ version, baseVersion }: { version: VersionEntry; baseV
       </div>
       <div className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">
         {authorName(version.author)} &middot; {formatDate(version.createdAt)} &middot; {cols.length} col{cols.length !== 1 ? "s" : ""}, {rows.length} row{rows.length !== 1 ? "s" : ""}
-        {isPending && (removedRows.length > 0 || removedCols.length > 0) && (
-          <span className="ml-2 text-red-500 dark:text-red-400">
+        {isPending && (removedRows.length > 0 || removedCols.length > 0 || modifiedCount > 0) && (
+          <span className="ml-2 text-amber-600 dark:text-amber-400">
+            {modifiedCount > 0 && <>{modifiedCount} row{modifiedCount !== 1 ? "s" : ""} modified</>}
+            {modifiedCount > 0 && (removedRows.length > 0 || removedCols.length > 0) && ", "}
             {removedRows.length > 0 && <>{removedRows.length} row{removedRows.length !== 1 ? "s" : ""} removed</>}
             {removedRows.length > 0 && removedCols.length > 0 && ", "}
             {removedCols.length > 0 && <>{removedCols.length} col{removedCols.length !== 1 ? "s" : ""} removed</>}
@@ -151,27 +190,46 @@ function VersionPreview({ version, baseVersion }: { version: VersionEntry; baseV
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((row, i) => (
-              <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-                {allCols.map((col) => {
-                  const isRemoved = removedColKeys.has(col.key);
-                  return (
-                    <td
-                      key={col.key}
-                      className={`px-3 py-1.5 whitespace-nowrap text-xs ${
-                        isRemoved
-                          ? "text-red-400 dark:text-red-400/60"
-                          : "text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      <span className={isRemoved ? "line-through" : ""}>
-                        {formatCellValue(row[col.key] ?? null)}
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {displayRows.map((row, i) => {
+              const baseRow = modifiedByPendingRow.get(row);
+              const isModified = !!baseRow;
+              return (
+                <tr
+                  key={i}
+                  className={`border-b border-zinc-100 dark:border-zinc-800 last:border-0 ${
+                    isModified ? "bg-amber-50/40 dark:bg-amber-900/10" : ""
+                  }`}
+                >
+                  {allCols.map((col) => {
+                    const isRemoved = removedColKeys.has(col.key);
+                    const newVal = formatCellValue(row[col.key] ?? null);
+                    const oldVal = baseRow ? formatCellValue(baseRow[col.key] ?? null) : newVal;
+                    const isCellChanged = isModified && !isRemoved && oldVal !== newVal;
+                    return (
+                      <td
+                        key={col.key}
+                        className={`px-3 py-1.5 whitespace-nowrap text-xs ${
+                          isRemoved
+                            ? "text-red-400 dark:text-red-400/60"
+                            : isCellChanged
+                            ? "text-amber-800 dark:text-amber-300"
+                            : "text-zinc-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        {isCellChanged ? (
+                          <>
+                            <span className="line-through text-zinc-400 dark:text-zinc-500 mr-1.5">{oldVal}</span>
+                            <span className="font-medium">{newVal}</span>
+                          </>
+                        ) : (
+                          <span className={isRemoved ? "line-through" : ""}>{newVal}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
             {/* Removed rows shown with strikethrough */}
             {removedRows.map((row, i) => (
               <tr key={`rm-${i}`} className="border-b border-zinc-100 dark:border-zinc-800 bg-red-50/30 dark:bg-red-900/10">
@@ -225,7 +283,9 @@ export default function TableHistory({ versions, tableName, tableId, isOwner, ac
       if (a.branch === activeBranch && b.branch !== activeBranch) return -1;
       if (b.branch === activeBranch && a.branch !== activeBranch) return 1;
       if (a.branch !== b.branch) return a.branch.localeCompare(b.branch);
-      return dateDir === "newest" ? b.version - a.version : a.version - b.version;
+      const at = new Date(a.createdAt).getTime();
+      const bt = new Date(b.createdAt).getTime();
+      return dateDir === "newest" ? bt - at : at - bt;
     });
   }, [versions, branchFilter, activeBranch, authorQuery, dateDir]);
 
@@ -457,7 +517,7 @@ export default function TableHistory({ versions, tableName, tableId, isOwner, ac
                           </span>
                         )}
                         <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
-                          v{v.version}
+                          {v.status === "PUBLISHED" ? `v${v.version}` : isPending ? "Pending" : "Rejected"}
                         </span>
                         {v.branch !== "main" && (
                           <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">
@@ -631,19 +691,23 @@ export default function TableHistory({ versions, tableName, tableId, isOwner, ac
         )}
       </div>
 
-      {showDiff ? (
+      {showDiff ? (() => {
+        const olderLabel = older.status === "PUBLISHED" ? `v${older.version}` : older.status === "REJECTED" ? "Rejected" : "Pending";
+        const newerLabel = newer.status === "PUBLISHED" ? `v${newer.version}` : newer.status === "REJECTED" ? "Rejected" : "Pending";
+        return (
         <div>
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
-            Comparing v{older.version} → v{newer.version}
+            Comparing {olderLabel} → {newerLabel}
           </h2>
           <DiffView
             left={{ schema: older.schema, data: older.data }}
             right={{ schema: newer.schema, data: newer.data }}
-            leftLabel={`v${older.version}${older.branch !== "main" ? ` (${older.branch})` : ""}${older.message ? ` — ${older.message}` : ""}`}
-            rightLabel={`v${newer.version}${newer.branch !== "main" ? ` (${newer.branch})` : ""}${newer.message ? ` — ${newer.message}` : ""}`}
+            leftLabel={`${olderLabel}${older.branch !== "main" ? ` (${older.branch})` : ""}${older.message ? ` — ${older.message}` : ""}`}
+            rightLabel={`${newerLabel}${newer.branch !== "main" ? ` (${newer.branch})` : ""}${newer.message ? ` — ${newer.message}` : ""}`}
           />
         </div>
-      ) : leftVersion && !rightVersion ? (
+        );
+      })() : leftVersion && !rightVersion ? (
         <VersionPreview version={leftVersion} baseVersion={currentVersion} />
       ) : null}
 

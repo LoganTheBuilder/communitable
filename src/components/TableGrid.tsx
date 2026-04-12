@@ -320,6 +320,16 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pe
                   const isModified = !!pendingEdits;
                   const isRemoved = pendingRemovedSet?.has(row) ?? false;
                   const isPending = isModified || isRemoved;
+                  const changedCellKeys = new Set<string>();
+                  if (pendingEdits) {
+                    for (const pendingRow of pendingEdits) {
+                      for (const col of columns) {
+                        if (formatCell(row[col.key] ?? null, col.type) !== formatCell(pendingRow[col.key] ?? null, col.type)) {
+                          changedCellKeys.add(col.key);
+                        }
+                      }
+                    }
+                  }
                   return (
                     <PendingRowGroup key={i}>
                       {/* Published row */}
@@ -333,7 +343,8 @@ export default function TableGrid({ columns, rows, initialSort, toolbarExtra, pe
                       >
                         {columns.map((col, ci) => {
                           const isColRemoved = pendingRemovedCols.has(col.key);
-                          const useStrike = isRemoved || isColRemoved;
+                          const isCellChanged = changedCellKeys.has(col.key);
+                          const useStrike = isRemoved || isColRemoved || isCellChanged;
                           return (
                             <td
                               key={col.key}

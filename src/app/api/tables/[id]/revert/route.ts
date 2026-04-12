@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   let newBranch = table.activeBranch;
   const latestOnBranch = await prisma.tableVersion.findFirst({
-    where: { tableId: id, branch: table.activeBranch },
+    where: { tableId: id, branch: table.activeBranch, status: "PUBLISHED" },
     orderBy: { version: "desc" },
     select: { id: true, version: true },
   });

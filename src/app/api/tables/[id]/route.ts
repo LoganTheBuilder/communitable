@@ -47,16 +47,23 @@ export async function PUT(req: NextRequest, { params }: Params) {
       select: { name: true, description: true, ownerId: true, editability: true, activeBranch: true },
     });
 
-    const [latest, ban] = await Promise.all([
+    const branch = tableRecord?.activeBranch ?? "main";
+    const [latestPublished, latestPending, ban] = await Promise.all([
       prisma.tableVersion.findFirst({
-        where: { tableId: id, branch: tableRecord?.activeBranch ?? "main" },
+        where: { tableId: id, branch, status: "PUBLISHED" },
         orderBy: { version: "desc" },
         select: { version: true, schema: true, data: true },
+      }),
+      prisma.tableVersion.findFirst({
+        where: { tableId: id, branch, version: { gte: 1_000_000 } },
+        orderBy: { version: "desc" },
+        select: { version: true },
       }),
       prisma.tableBan.findUnique({
         where: { tableId_profileId: { tableId: id, profileId } },
       }).catch(() => null),
     ]);
+    const latest = latestPublished;
 
     const isTableOwner = tableRecord?.ownerId === profileId;
 
@@ -111,8 +118,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const message = metaChanges.length > 0 ? `${metaChanges.join("/")} updated` : null;
 
     if (schemaChanged || dataChanged || metaChanges.length > 0 || !latest) {
-      const nextVersion = (latest?.version ?? 0) + 1;
-      const branch = tableRecord?.activeBranch ?? "main";
+      const nextVersion = isPendingApproval
+        ? (latestPending?.version ?? 999_999) + 1
+        : (latest?.version ?? 0) + 1;
       await prisma.tableVersion.create({
         data: {
           tableId: id,
