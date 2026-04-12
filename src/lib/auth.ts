@@ -15,7 +15,7 @@ export const auth = betterAuth({
       try {
         await sendEmail({
           to: user.email,
-          subject: "tablebees - Reset your password",
+          subject: "Communitables - Reset your password",
           html: `
             <h2>Reset your password</h2>
             <p>Click the link below to reset your password. This link expires in 1 hour.</p>
@@ -42,7 +42,7 @@ export const auth = betterAuth({
 
         await sendEmail({
           to: user.email,
-          subject: "tablebees - Verify your email",
+          subject: "Communitables - Verify your email",
           html: `
             <h2>Verify your email</h2>
             <p>Click the link below to verify your email address.</p>
@@ -66,8 +66,8 @@ export const auth = betterAuth({
   trustedOrigins: [
     process.env.BETTER_AUTH_URL || "http://localhost:3000",
     process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    "https://tablebees.com",
-    "https://www.tablebees.com",
+    "https://Communitables.com",
+    "https://www.Communitables.com",
   ],
 });
 
