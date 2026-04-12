@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "tablebees - the crowdsourced table app",
+  title: "Communitables",
   description: "Browse, fork, and collaborate on structured data tables.",
 };
 

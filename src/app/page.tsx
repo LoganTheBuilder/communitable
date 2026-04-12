@@ -86,8 +86,8 @@ export default async function Home() {
           <polygon points="50,10 87,32 87,68 50,90 13,68 13,32" />           
         </svg> */}
         <Link href="/" className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hover:opacity-70 transition-opacity">
-          <span className="bg-gradient-to-bl from-blue-600 to-cyan-500 bg-clip-text text-transparent">communi</span>
-          <span>table</span>
+          <span className="bg-gradient-to-bl from-blue-600 to-cyan-500 bg-clip-text text-transparent">Communi</span>
+          <span>tables</span>
         </Link>
         <AuthNav />
       </header>
